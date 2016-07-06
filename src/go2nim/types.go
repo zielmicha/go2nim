@@ -1,6 +1,7 @@
 package go2nim
 
 import "strings"
+import "strconv"
 import "go/ast"
 
 func (c *Context) convertInlineStruct(node *ast.StructType) string {
@@ -83,11 +84,24 @@ func (c *Context) convertParamList(fields *ast.FieldList, recv *ast.FieldList) s
 }
 
 func (c *Context) convertReturnType(fields *ast.FieldList) string {
+	result := []string{}
+
 	if fields == nil || len(fields.List) == 0 {
 		return "void"
-	} else if len(fields.List) == 1 {
+	}
+
+	for i, field := range fields.List {
+		if len(field.Names) == 0 {
+			result = append(result, "arg" + strconv.Itoa(i) + ": " + c.convertType(field.Type))
+		}
+		for _, name := range field.Names {
+			result = append(result, name.Name + ": " + c.convertType(field.Type))
+		}
+	}
+
+	if len(result) == 1 {
 		return c.convertType(fields.List[0].Type)
 	} else {
-		return "composite return type"
+		return "tuple[" + strings.Join(result, ", ") + "]"
 	}
 }

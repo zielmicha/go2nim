@@ -25,7 +25,7 @@ const (
 // nope
 
 func (b Bar) Rebarize() {
-
+	var a int = (5+5)*2
 }
 
 func main() {

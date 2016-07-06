@@ -22,29 +22,38 @@ func (c *Context) copy() *Context {
 func (c *Context) convertFuncName(name string) string {
 	firstLetter := strings.ToLower(string(name[0]))
 	if firstLetter != string(name[0]) {
+		if len(name) > 1 {
+			secondLetter := strings.ToLower(string(name[1]))
+			if secondLetter != string(name[1]) {
+				return name
+			}
+		}
 		return firstLetter + name[1:]
 	} else {
 		return name
 	}
 }
 
-func (c *Context) convertFieldName(name string) string {
+func (c *Context) isPublic(name string) bool {
 	firstLetter := strings.ToLower(string(name[0]))
-	if firstLetter != string(name[0]) {
-		return firstLetter + name[1:]
-	} else {
-		return name
-	}
+	return firstLetter != string(name[0])
+}
+
+func (c *Context) convertFieldName(name string) string {
+	return c.convertFuncName(name)
 }
 
 func fromLiteralString(item *ast.BasicLit) string {
 	if item.Kind != token.STRING {
 		panic("unexpected item type")
 	}
-	return item.Value
+	return item.Value[1:len(item.Value)-1] // TODO
 }
 
 func (c *Context) convertComment(comments *ast.CommentGroup) string {
+	if comments == nil {
+		return ""
+	}
 	result := ""
 	for _, comment := range comments.List {
 		text := comment.Text
@@ -58,7 +67,7 @@ func (c *Context) convertComment(comments *ast.CommentGroup) string {
 }
 
 func (c *Context) ConvertPreamble(files []*ast.File) string {
-	preamble := ""
+	preamble := "include gosupport\n"
 	allDecls := make([]ast.Decl, 0)
 	for _, file := range files {
 		allDecls = append(allDecls, file.Decls...)

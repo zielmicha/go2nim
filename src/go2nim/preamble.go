@@ -3,10 +3,13 @@ package go2nim
 import "go/token"
 import "go/ast"
 
+func (c *Context) convertImportPath(path string) string {
+	return "golib/" + path
+}
+
 func (c *Context) convertImport(spec *ast.ImportSpec) string {
-	ast.Print(c.Fset, spec)
 	var result string
-	path := fromLiteralString(spec.Path)
+	path := c.convertImportPath(fromLiteralString(spec.Path))
 	var name string
 	if spec.Name == nil {
 		name = "_"
@@ -15,9 +18,7 @@ func (c *Context) convertImport(spec *ast.ImportSpec) string {
 	}
 
 	switch name {
-	case "_":
-		result = "from " + path + " import nil"
-	case ".":
+	case ".", "_":
 		result = "import " + path
 	default:
 		result = "import " + path + " as " + spec.Name.Name
