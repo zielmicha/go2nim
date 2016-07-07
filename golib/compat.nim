@@ -5,3 +5,4 @@ proc `+`*(a: string, b: string): string =
 
 proc `+=`*(a: var string, b: string) =
   a &= b
+

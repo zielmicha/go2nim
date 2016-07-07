@@ -7,14 +7,31 @@ import "fmt"
 import "os"
 
 func main() {
-	fn := os.Args[1]
+	action := os.Args[1]
+	fns := os.Args[2:]
 	context := go2nim.NewContext()
-	root, err := parser.ParseFile(context.Fset, fn, nil, parser.ParseComments)
-	if err != nil {
-		panic(err)
+
+	files := []*ast.File{}
+	for _, fn := range fns {
+		root, err := parser.ParseFile(context.Fset, fn, nil, parser.ParseComments)
+		if err != nil {
+			panic(err)
+		}
+		files = append(files, root)
 	}
-	preamble := context.ConvertPreamble([]*ast.File{root})
-	fmt.Println(preamble)
-	body := context.ConvertBody(root)
-	fmt.Println(body)
+	printPreamble := action == "preamble" || action == "all"
+	printBody := action == "body" || action == "all"
+	if printPreamble {
+		preamble := context.ConvertPreamble(files)
+		fmt.Println(preamble)
+	}
+	if printBody {
+		for _, file := range files {
+			body := context.ConvertBody(file)
+			fmt.Println(body)
+		}
+	}
+	if !printBody && !printPreamble {
+		panic("invalid action")
+	}
 }

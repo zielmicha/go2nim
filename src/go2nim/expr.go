@@ -16,9 +16,9 @@ func (c *Context) convertBinaryToken(tok token.Token) string {
 		return "/"
 	case token.REM:
 		return "mod"
-	case token.AND:
+	case token.AND, token.LAND:
         return "and"
-    case token.OR:
+    case token.OR, token.LOR:
         return "or"
     case token.XOR:
         return "xor"
@@ -59,7 +59,7 @@ func (c *Context) convertUnaryToken(tok token.Token) string {
 	}
 }
 
-func (c *Context) convertCompositeLiteral(expr *ast.CompositeLit) string {
+func (c *Context) convertCompositeLiteral(expr *ast.CompositeLit, pointer bool) string {
 	result := []string{}
 	isKv := false
 	for _, node := range expr.Elts {
@@ -117,13 +117,18 @@ func (c *Context) convertExpr(expr ast.Expr) string {
 	case *ast.TypeAssertExpr:
 		return "castInterface(" + c.convertExpr(node.X) + ", to=" + c.convertType(node.Type) + ")"
 	case *ast.UnaryExpr:
+		if node.Op == token.AND {
+			if lit, ok := node.X.(*ast.CompositeLit); ok {
+				return c.convertCompositeLiteral(lit, true)
+			}
+		}
 		return c.convertUnaryToken(node.Op) + c.convertExpr(node.X)
 
 	case *ast.BasicLit:
 		// TODO: convert string literals
 		return node.Value
 	case *ast.CompositeLit:
-		return c.convertCompositeLiteral(node)
+		return c.convertCompositeLiteral(node, false)
 	case *ast.FuncLit:
 		paramList := c.convertParamList(node.Type.Params, nil)
 		body := c.convertBlockStmt(node.Body)

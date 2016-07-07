@@ -1,0 +1,6 @@
+/nim.cfg
+/build.sh
+nimcache/
+experiment/
+/go2nim
+*.ndb

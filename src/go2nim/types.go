@@ -11,7 +11,7 @@ func (c *Context) convertInlineStruct(node *ast.StructType) string {
 			fields = append(fields, c.convertFieldName(name.Name) + ": " + c.convertType(field.Type))
 		}
 	}
-	return "struct({" + strings.Join(fields, ", ") + "})"
+	return "struct((" + strings.Join(fields, ", ") + "))"
 }
 
 func (c *Context) convertInlineInterface(node *ast.InterfaceType) string {
@@ -21,7 +21,7 @@ func (c *Context) convertInlineInterface(node *ast.InterfaceType) string {
 		var typeBase interface{} = method.Type
 		fields[i] = c.convertFieldName(name) + "(" + c.convertParamList(typeBase.(*ast.FuncType).Params, nil) + "): " + c.convertReturnType(typeBase.(*ast.FuncType).Results)
 	}
-	return "interface(" + strings.Join(fields, ", ") + ")"
+	return "interface((" + strings.Join(fields, ", ") + "))"
 }
 
 func (c *Context) convertType(expr ast.Expr) string {
