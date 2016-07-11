@@ -7,11 +7,17 @@ import "go/ast"
 type Context struct {
 	Fset *token.FileSet
 	resultVariables map[string]bool
+	resultNames []string
+	publicFunctions map[string]bool
+	assignedTo map[string]bool
 	iotaValue int
 }
 
 func NewContext() *Context {
-	return &Context{Fset: token.NewFileSet()}
+	return &Context{
+		Fset: token.NewFileSet(),
+		publicFunctions: map[string]bool{},
+		assignedTo: map[string]bool{}}
 }
 
 func (c *Context) copy() *Context {
@@ -19,7 +25,7 @@ func (c *Context) copy() *Context {
 	return &newc
 }
 
-func (c *Context) convertFuncName(name string) string {
+func (c *Context) downcaseFirstLetter(name string) string {
 	firstLetter := strings.ToLower(string(name[0]))
 	if firstLetter != string(name[0]) {
 		if len(name) > 1 {
@@ -34,13 +40,37 @@ func (c *Context) convertFuncName(name string) string {
 	}
 }
 
+func (c *Context) upcaseFirstLetter(name string) string {
+	firstLetter := strings.ToUpper(string(name[0]))
+	if firstLetter != string(name[0]) {
+		return firstLetter + name[1:]
+	} else {
+		return name
+	}
+}
+
+
 func (c *Context) isPublic(name string) bool {
 	firstLetter := strings.ToLower(string(name[0]))
 	return firstLetter != string(name[0])
 }
 
+func (c *Context) convertFuncName(name string) string {
+	if !c.isPublic(name) {
+		if _, ok := c.publicFunctions[name]; ok {
+			return c.downcaseFirstLetter(name) + "Internal"
+		}
+		return c.downcaseFirstLetter(name)
+	}
+	return c.downcaseFirstLetter(name)
+}
+
 func (c *Context) convertFieldName(name string) string {
-	return c.convertFuncName(name)
+	return c.downcaseFirstLetter(name)
+}
+
+func (c *Context) convertTypeName(name string) string {
+	return c.upcaseFirstLetter(name)
 }
 
 func fromLiteralString(item *ast.BasicLit) string {
@@ -72,6 +102,7 @@ func (c *Context) ConvertPreamble(files []*ast.File) string {
 	for _, file := range files {
 		allDecls = append(allDecls, file.Decls...)
 	}
+	c.walkFuncDecls(allDecls)
 	preamble += c.convertImports(allDecls)
 	preamble += c.convertTypeDecls(allDecls)
 	preamble += c.convertFuncDecls(allDecls)
@@ -81,5 +112,6 @@ func (c *Context) ConvertPreamble(files []*ast.File) string {
 }
 
 func (c *Context) ConvertBody(file *ast.File) string {
+	c.walkFuncDecls(file.Decls)
 	return c.convertFuncBodies(file.Decls)
 }

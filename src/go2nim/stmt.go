@@ -4,6 +4,52 @@ import "go/ast"
 import "go/token"
 import "strings"
 
+func (c *Context) walkStmt(stmt ast.Stmt) {
+	var node interface{} = stmt
+	switch node := node.(type) {
+	case *ast.AssignStmt:
+		for _, expr := range node.Lhs {
+			if ident, ok := expr.(*ast.Ident); ok {
+				c.assignedTo[ident.Name] = true
+			}
+		}
+	case *ast.BlockStmt:
+		for _, child := range node.List {
+			c.walkStmt(child)
+		}
+	case *ast.CaseClause:
+		for _, child := range node.Body {
+			c.walkStmt(child)
+		}
+	case *ast.EmptyStmt:
+		panic("not implemented")
+	case *ast.ForStmt:
+		if node.Init != nil {
+			c.walkStmt(node.Init)
+		}
+		c.walkStmt(node.Body)
+	case *ast.IfStmt:
+
+		if node.Else != nil {
+			c.walkStmt(node.Else)
+		}
+		if node.Init != nil {
+			c.walkStmt(node.Init)
+		}
+		c.walkStmt(node.Body)
+	case *ast.SelectStmt:
+		panic("not implemented")
+	case *ast.SwitchStmt:
+		if node.Init != nil {
+			c.walkStmt(node.Init)
+		}
+		c.walkStmt(node.Body)
+	case *ast.TypeSwitchStmt:
+		c.walkStmt(node.Body)
+	}
+}
+
+
 func (c *Context) convertStmt(stmt ast.Stmt) string {
 	var node interface{} = stmt
 	switch node := node.(type) {
@@ -91,13 +137,25 @@ func (c *Context) convertStmt(stmt ast.Stmt) string {
 		for _, expr := range node.Results {
 			result = append(result, c.convertExpr(expr))
 		}
+
+		var resultStr string
 		switch len(result) {
 		case 0:
-			return "return"
+			resultStr = ""
 		case 1:
-			return "return " + result[0]
+			resultStr = result[0]
 		default:
-			return "return (" + strings.Join(result, ", ") + ")"
+			resultStr = "(" + strings.Join(result, ", ") + ")"
+		}
+
+		if c.resultNames != nil && len(result) != 0 {
+			resultVars := []string{}
+			for _, name := range c.resultNames {
+				resultVars = append(resultVars, "result." + name)
+			}
+			return "(" + strings.Join(resultVars, ", ") + ") = " + resultStr + "\nreturn"
+		} else {
+			return "return " + resultStr
 		}
 	case *ast.SelectStmt:
 		panic("not implemented")
@@ -241,12 +299,48 @@ func (c *Context) convertStmtList(stmts []ast.Stmt) string {
 	return strings.Join(result, "\n")
 }
 
+func (c *Context) convertFuncCode(funcType *ast.FuncType, body *ast.BlockStmt) string {
+	newc := c.copy()
+	newc.resultVariables = map[string]bool{}
+	newc.assignedTo = map[string]bool{}
+	newc.walkStmt(body)
+	newc.resultNames = c.getReturnTypeResultVariables(funcType.Results)
+
+	if funcType.Results != nil {
+		for _, field := range funcType.Results.List {
+			for _, name := range field.Names {
+				newc.resultVariables[name.Name] = true
+			}
+		}
+	}
+
+	reassignNames := []string{}
+	for _, arg := range funcType.Params.List {
+		for _, name := range arg.Names {
+			if _, ok := newc.assignedTo[name.Name]; ok {
+				reassignNames = append(reassignNames, name.Name)
+			}
+		}
+	}
+
+	head := ""
+	if len(reassignNames) != 0 {
+		namesStr := strings.Join(reassignNames, ",")
+		if len(reassignNames) != 1 {
+			namesStr = "(" + namesStr + ")"
+		}
+		head += "var " + namesStr + " = " + namesStr + "\n"
+	}
+
+	return head + newc.convertBlockStmt(body)
+}
+
 func (c *Context) convertFuncBody(fdecl *ast.FuncDecl) string {
 	paramList := c.convertParamList(fdecl.Type.Params, fdecl.Recv)
 	name := c.convertFuncName(fdecl.Name.Name)
 
 	// ast.Print(c.Fset, fdecl.Body)
-	body := c.convertBlockStmt(fdecl.Body)
+	body := c.convertFuncCode(fdecl.Type, fdecl.Body)
 
 	return "proc " + name + "(" + paramList + "): " + c.convertReturnType(fdecl.Type.Results) + " =\n" + indent(body) + "\n"
 }

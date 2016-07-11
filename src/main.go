@@ -5,6 +5,7 @@ import "go/ast"
 import "go2nim"
 import "fmt"
 import "os"
+import "strings"
 
 func main() {
 	action := os.Args[1]
@@ -13,6 +14,9 @@ func main() {
 
 	files := []*ast.File{}
 	for _, fn := range fns {
+		if strings.HasSuffix(fn, "_test.go") {
+			continue
+		}
 		root, err := parser.ParseFile(context.Fset, fn, nil, parser.ParseComments)
 		if err != nil {
 			panic(err)

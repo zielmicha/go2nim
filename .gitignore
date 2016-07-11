@@ -4,3 +4,6 @@ nimcache/
 experiment/
 /go2nim
 *.ndb
+
+/golib/io.nim
+/golib/errors.nim

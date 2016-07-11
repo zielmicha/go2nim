@@ -55,9 +55,12 @@ get_dep() {
 
 echo "path: \".\"" > nim.cfg
 
-get_dep collections https://github.com/zielmicha/collections.nim 001b4acb54d08efec9aee69d5b8ec54a58bff72a ''
+get_dep collections https://github.com/zielmicha/collections.nim ad0501d5ea9505bdf6473fc663b69d716fafc481 ''
 
-echo '# enable debugging
+echo 'path: "translated/"
+path: "."
+
+# enable debugging
 passC: "-g"
 passL: "-g"
 

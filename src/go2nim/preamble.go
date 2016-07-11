@@ -44,11 +44,11 @@ func (c *Context) convertTypeDecls(decls []ast.Decl) string {
 	for _, decl := range decls {
 		if gdecl, ok := decl.(*ast.GenDecl); ok && gdecl.Tok == token.TYPE {
 			tspec := gdecl.Specs[0].(*ast.TypeSpec)
-			result += "  " + tspec.Name.Name + "* = " + c.convertType(tspec.Type) + "\n"
+			result += "  " + c.convertTypeName(tspec.Name.Name) + "* = " + c.convertTypeDecl(tspec.Type) + "\n"
 		}
 	}
 	if result != "" {
-		result = "\ntype\n" + result
+		result = "\nexttypes:\n  type\n" + indent(result)
 	}
 	return result
 }
@@ -71,6 +71,17 @@ func (c *Context) convertFuncDecls(decls []ast.Decl) string {
 		}
 	}
 	return result
+}
+
+func (c *Context) walkFuncDecls(decls []ast.Decl) {
+	for _, decl := range decls {
+		if fdecl, ok := decl.(*ast.FuncDecl); ok {
+			name := fdecl.Name.Name
+			if c.isPublic(name) {
+				c.publicFunctions[c.downcaseFirstLetter(name)] = true
+			}
+		}
+	}
 }
 
 func (c *Context) convertVariables(decls []ast.Decl) string {

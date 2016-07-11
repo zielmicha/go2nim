@@ -29,7 +29,7 @@ func (c *Context) convertVariableSection(sectionToken token.Token, specs []ast.S
 	if sectionToken == token.VAR {
 		result += "var "
 	} else {
-		result += "let "
+		result += "const "
 	}
 	parts := []string{}
 	for _, gspec := range specs {
@@ -41,7 +41,7 @@ func (c *Context) convertVariableSection(sectionToken token.Token, specs []ast.S
 			} else {
 				value = spec.Values[i]
 			}
-			part := name.Name
+			part := c.convertFuncName(name.Name)
 			if spec.Type != nil {
 				part += ": " + c.convertType(spec.Type)
 			}

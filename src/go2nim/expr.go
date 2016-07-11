@@ -3,6 +3,7 @@ package go2nim
 import "go/ast"
 import "go/token"
 import "strings"
+import "fmt"
 
 func (c *Context) convertBinaryToken(tok token.Token) string {
 	switch tok {
@@ -53,13 +54,16 @@ func (c *Context) convertUnaryToken(tok token.Token) string {
 		return "gcaddr "
 	case token.NOT:
 		return "not "
+	case token.XOR:
+		return "not "
 
     default:
-		panic("unknown unary token ")
+		fmt.Println(tok)
+		panic("unknown unary token")
 	}
 }
 
-func (c *Context) convertCompositeLiteral(expr *ast.CompositeLit, pointer bool) string {
+func (c *Context) convertCompositeLiteral(expr *ast.CompositeLit, isPointer bool) string {
 	result := []string{}
 	isKv := false
 	for _, node := range expr.Elts {
@@ -70,13 +74,34 @@ func (c *Context) convertCompositeLiteral(expr *ast.CompositeLit, pointer bool) 
 			result = append(result, c.convertExpr(node))
 		}
 	}
+
 	val := strings.Join(result, ", ")
+	var wrapped string
 	if isKv {
-		val = "{" + val + "}"
+		wrapped = "{" + val + "}"
 	} else {
-		val = "[" + val + "]"
+		wrapped = "[" + val + "]"
 	}
-	return "make(" + c.convertType(expr.Type) + ", " + val + ")"
+
+	if expr.Type == nil {
+		return val
+	}
+
+	typeName := c.convertType(expr.Type)
+
+	switch expr.Type.(type) {
+	case *ast.MapType, *ast.ArrayType:
+		return wrapped + ".make(" + typeName + ")"
+	default:
+		if isPointer {
+			typeName = "(ref " + typeName + ")"
+		}
+		if isKv {
+			return typeName + "(" + val + ")"
+		} else {
+			return "make((" + val + "), " + typeName + ")"
+		}
+	}
 }
 
 func (c *Context) convertExpr(expr ast.Expr) string {
@@ -84,6 +109,10 @@ func (c *Context) convertExpr(expr ast.Expr) string {
 
 	switch node := node.(type) {
 	case *ast.CallExpr:
+		// One of a few places where Go is context sensitive - this may be either conversion or call
+		if len(node.Args) == 1 && c.looksLikeType(node.Fun) == 1 {
+			return "convert(" + c.convertType(node.Fun) + ", " + c.convertExpr(node.Args[0]) + ")"
+		}
 		// TODO: ellipsis
 		args := make([]string, len(node.Args))
 		for i, arg := range node.Args {
@@ -106,7 +135,7 @@ func (c *Context) convertExpr(expr ast.Expr) string {
 			result = append(result, "low=" + c.convertExpr(node.Low))
 		}
 		if node.High != nil {
-			result = append(result, "high=" + c.convertExpr(node.Low))
+			result = append(result, "high=" + c.convertExpr(node.High))
 		}
 		if node.Max != nil {
 			result = append(result, "max=" + c.convertExpr(node.Max))
@@ -131,11 +160,20 @@ func (c *Context) convertExpr(expr ast.Expr) string {
 		return c.convertCompositeLiteral(node, false)
 	case *ast.FuncLit:
 		paramList := c.convertParamList(node.Type.Params, nil)
-		body := c.convertBlockStmt(node.Body)
+		body := c.convertFuncCode(node.Type, node.Body)
 		return "(proc(" + paramList + "): " + c.convertReturnType(node.Type.Results) + " =\n" + indent(body) + ")"
 	case *ast.Ident:
+		if node.Name == "nil" {
+			return "null"
+		}
+		if _, ok := c.resultVariables[node.Name]; ok {
+			return "result." + c.convertFuncName(node.Name)
+		}
 		return c.convertFuncName(node.Name)
-
+	case *ast.Ellipsis:
+		//ast.Print(c.Fset, node)
+		// TODO
+		return "..."
 	default:
 		return c.convertType(expr)
 	}
