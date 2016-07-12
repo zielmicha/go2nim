@@ -113,6 +113,16 @@ func (c *Context) convertExpr(expr ast.Expr) string {
 		if len(node.Args) == 1 && c.looksLikeType(node.Fun) == 1 {
 			return "convert(" + c.convertType(node.Fun) + ", " + c.convertExpr(node.Args[0]) + ")"
 		}
+
+		if ident, ok := node.Fun.(*ast.Ident); ok {
+			// check for builtin functions
+			switch ident.Name {
+			case "new":
+				if len(node.Args) != 1 { panic("bad number of arguments") }
+				return "gcnew(" + c.convertType(node.Args[0]) + ")"
+			}
+		}
+
 		// TODO: ellipsis
 		args := make([]string, len(node.Args))
 		for i, arg := range node.Args {

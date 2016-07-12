@@ -56,6 +56,10 @@ func (c *Context) isPublic(name string) bool {
 }
 
 func (c *Context) convertFuncName(name string) string {
+	switch name {
+	case "make", "copy":
+		return name
+	}
 	if !c.isPublic(name) {
 		if _, ok := c.publicFunctions[name]; ok {
 			return c.downcaseFirstLetter(name) + "Internal"

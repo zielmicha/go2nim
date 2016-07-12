@@ -55,7 +55,7 @@ get_dep() {
 
 echo "path: \".\"" > nim.cfg
 
-get_dep collections https://github.com/zielmicha/collections.nim ad0501d5ea9505bdf6473fc663b69d716fafc481 ''
+get_dep collections https://github.com/zielmicha/collections.nim 518c88a91d3cf9fcd686471cff41584576fa2e6e ''
 
 echo 'path: "translated/"
 path: "."
@@ -67,6 +67,7 @@ passL: "-g"
 verbosity: "0"
 hint[ConvFromXtoItselfNotNeeded]: "off"
 hint[XDeclaredButNotUsed]: "off"
+warning[SmallLshouldNotBeUsed]: "off"
 
 debugger: "native"
 

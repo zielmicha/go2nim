@@ -12,3 +12,9 @@ func (s *SectionReader) Seek(offset int64, whence int) (int64, error) {
 		offset += s.base
 	}
 }
+
+func Seek1() (r1 int64, r2 int64) {
+	if true {
+		r1 := 5
+	}
+}

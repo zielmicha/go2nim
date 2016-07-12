@@ -240,7 +240,18 @@ func (c *Context) convertSwitch(body *ast.BlockStmt, init ast.Stmt, tag ast.Expr
 func (c *Context) convertAssign(node *ast.AssignStmt) string {
 	lhsL := []string{}
 	for _, expr := range node.Lhs {
-		lhsL = append(lhsL, c.convertExpr(expr))
+		var exprStr string
+		if ident, ok := expr.(*ast.Ident); ok {
+			if _, ok := ident.Obj.Decl.(*ast.AssignStmt); ok {
+				// not result.X
+				exprStr = ident.Name
+			} else {
+				exprStr = c.convertExpr(expr)
+			}
+		} else {
+			exprStr = c.convertExpr(expr)
+		}
+		lhsL = append(lhsL, exprStr)
 	}
 
 	rhsL := []string{}
