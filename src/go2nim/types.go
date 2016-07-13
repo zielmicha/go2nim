@@ -65,7 +65,11 @@ func (c *Context) convertType(expr ast.Expr) string {
 		if node.Len == nil {
 			return "GoSlice[" + c.convertType(node.Elt) + "]"
 		} else {
-			return "GoArray[" + c.convertType(node.Elt) + ", " + c.convertExpr(node.Len) + "]"
+			if _, ok := node.Len.(*ast.Ellipsis); ok {
+				return "GoAutoArray[" + c.convertType(node.Elt) + "]"
+			} else {
+				return "GoArray[" + c.convertType(node.Elt) + ", " + c.convertExpr(node.Len) + "]"
+			}
 		}
 	case *ast.ChanType:
 		if node.Dir == ast.SEND {

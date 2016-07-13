@@ -14,6 +14,8 @@ type
     # TODO
     a: int
 
+  GoAutoArray*[T] = object
+
 proc panic*(err: string) =
   # TODO
   raise newException(Exception, "panic")
@@ -60,6 +62,11 @@ proc make*[T: object, R](fields: R, t: typedesc[T]): T =
 proc make*[T, R](fields: R, t: typedesc[ref T]): gcptr[T] =
   let ret = new(T)
   ret[] = make(fields, T)
+  return ret
+
+proc make*[T; R](fields: R, t: typedesc[GoAutoArray[T]]): auto =
+  var ret: GoArray[T, fields.len]
+  panic("make goarray")
   return ret
 
 proc make*[T; R; N: static[int32]](fields: R, t: typedesc[GoArray[T, N]]): GoArray[T, N] =

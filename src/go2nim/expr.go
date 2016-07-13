@@ -212,7 +212,11 @@ func (c *Context) convertExpr(expr ast.Expr) string {
 			return strconv.Itoa(c.iotaValue)
 		}
 		if _, ok := c.resultVariables[node.Name]; ok {
-			return "result." + c.convertFuncName(node.Name)
+			if len(c.resultVariables) == 1 {
+				return "result"
+			} else {
+				return "result." + c.convertFuncName(node.Name)
+			}
 		}
 		return c.convertFuncName(node.Name)
 	case *ast.Ellipsis:

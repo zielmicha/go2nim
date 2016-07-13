@@ -16,3 +16,4 @@ for name in lo pc ps; do
     sed -i 's/  '$name' =/  `'$name'-` =/' golib/unicode.nim
     sed -i 's/: '$name',/: `'$name'-`,/' golib/unicode.nim
 done
+genpkg unicode/utf8
