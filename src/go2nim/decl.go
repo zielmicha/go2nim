@@ -31,7 +31,9 @@ func (c *Context) convertVariableSection(sectionToken token.Token, specs []ast.S
 	} else {
 		result += "const "
 	}
+	c.iotaValue = 0
 	parts := []string{}
+	var lastExpr ast.Expr
 	for _, gspec := range specs {
 		spec := gspec.(*ast.ValueSpec)
 		for i, name := range spec.Names {
@@ -47,9 +49,14 @@ func (c *Context) convertVariableSection(sectionToken token.Token, specs []ast.S
 			}
 			if value != nil {
 				part += " = " + c.convertExpr(value)
+				lastExpr = value
+			} else if sectionToken == token.CONST {
+				part += " = " + c.convertExpr(lastExpr)
 			}
+
 			parts = append(parts, part)
 		}
+		c.iotaValue ++
 	}
 	if len(parts) == 1 {
 		return result + parts[0]

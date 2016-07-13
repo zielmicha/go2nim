@@ -2,10 +2,11 @@ package main
 
 import "go/parser"
 import "go/ast"
+import "io/ioutil"
+import "strings"
 import "go2nim"
 import "fmt"
 import "os"
-import "strings"
 
 func main() {
 	action := os.Args[1]
@@ -15,6 +16,13 @@ func main() {
 	files := []*ast.File{}
 	for _, fn := range fns {
 		if strings.HasSuffix(fn, "_test.go") {
+			continue
+		}
+		data, err := ioutil.ReadFile(fn)
+		if err != nil {
+			panic(err)
+		}
+		if strings.Contains(string(data), "// +build ignore") {
 			continue
 		}
 		root, err := parser.ParseFile(context.Fset, fn, nil, parser.ParseComments)

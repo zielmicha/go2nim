@@ -48,7 +48,7 @@ func (c *Context) convertType(expr ast.Expr) string {
 		return c.convertType(node.X)
 	case *ast.Ident:
 		switch node.Name {
-		case "byte", "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64", "string":
+		case "bool", "byte", "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64", "string":
 			return node.Name
 		default:
 			return c.upcaseFirstLetter(node.Name)
@@ -76,7 +76,7 @@ func (c *Context) convertType(expr ast.Expr) string {
 	case *ast.StarExpr:
 		return "gcptr[" + c.convertType(node.X) + "]"
 	case *ast.Ellipsis:
-		return "varargs[" + c.convertType(node.Elt) + "]"
+		return "GoSlice[" + c.convertType(node.Elt) + "]"
 	case *ast.SelectorExpr:
 		return c.convertExpr(node.X) + "." + node.Sel.Name
 	default:
@@ -89,6 +89,10 @@ func (c *Context) looksLikeType(expr ast.Node) int {
 	var node interface{} = expr
 	switch node := node.(type) {
 	case *ast.Ident:
+		switch node.Name {
+		case "rune", "bool", "byte", "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64", "string":
+			return 1
+		}
 		if node.Obj != nil {
 			if _, ok := node.Obj.Decl.(*ast.TypeSpec); ok {
 				return 1
@@ -120,7 +124,7 @@ func (c *Context) convertParamList(fields *ast.FieldList, recv *ast.FieldList) s
 	result := []string{}
 	for _, field := range fields.List {
 		for _, name := range field.Names {
-			result = append(result, name.Name + ": " + c.convertType(field.Type))
+			result = append(result, c.convertFieldName(name.Name) + ": " + c.convertType(field.Type))
 		}
 	}
 

@@ -64,6 +64,8 @@ func (c *Context) convertStmt(stmt ast.Stmt) string {
 			return "break"
 		case token.CONTINUE:
 			return "continue"
+		case token.GOTO:
+			panic("goto not yet supported")
 		default:
 			panic("invalid branch keyword")
 		}
@@ -125,11 +127,18 @@ func (c *Context) convertStmt(stmt ast.Stmt) string {
 		ast.Print(c.Fset, node)
 		return "LABELED"
 	case *ast.RangeStmt:
-		key := c.convertExpr(node.Value)
-		if node.Key != nil {
-			key = c.convertExpr(node.Key) + ", " + key
+		// ast.Print(c.Fset, node)
+		var result string
+		if node.Value == nil {
+			key := c.convertExpr(node.Key)
+			result = "for " + key + " in 0..<len(" + c.convertExpr(node.X) + "):\n"
+		} else {
+			key := c.convertExpr(node.Value)
+			if node.Key != nil {
+				key = c.convertExpr(node.Key) + ", " + key
+			}
+			result = "for " + key + " in " + c.convertExpr(node.X) + ":\n"
 		}
-		result := "for " + key + " in " + c.convertExpr(node.X) + ":\n"
 		result += indent(c.convertBlockStmt(node.Body))
 		return result
 	case *ast.ReturnStmt:
@@ -190,11 +199,23 @@ func (c *Context) convertSwitch(body *ast.BlockStmt, init ast.Stmt, tag ast.Expr
 	var defaultCase *ast.CaseClause
 	result := ""
 
-	for _, clause := range body.List {
+	for i, clause := range body.List {
 		clause := clause.(*ast.CaseClause)
 		if clause.List == nil {
 			defaultCase = clause
 		} else {
+			fallthroughIndex := i
+			caseBody := clause.Body
+			for len(clause.Body) > 0 {
+				fallthroughStmt, ok := caseBody[len(caseBody)-1].(*ast.BranchStmt)
+				if !ok { break }
+				if fallthroughStmt.Tok != token.FALLTHROUGH { break }
+				fallthroughIndex += 1
+				caseBody = caseBody[:len(caseBody)-1]
+				nestBody := body.List[fallthroughIndex].(*ast.CaseClause).Body
+				caseBody = append(caseBody, nestBody...)
+			}
+
 			if result == "" {
 				result += "if "
 			} else {
@@ -210,8 +231,8 @@ func (c *Context) convertSwitch(body *ast.BlockStmt, init ast.Stmt, tag ast.Expr
 				}
 				cond = append(cond, switchOn + " == " + expr)
 			}
-			result += strings.Join(cond, ", ") + ":\n"
-			result += indent(c.convertStmtList(clause.Body)) + "\n"
+			result += strings.Join(cond, " or ") + ":\n"
+			result += indent(c.convertStmtList(caseBody)) + "\n"
 		}
 	}
 
@@ -229,7 +250,11 @@ func (c *Context) convertSwitch(body *ast.BlockStmt, init ast.Stmt, tag ast.Expr
 		if isTypeSwitch {
 			convertedTag = "typeId(" + c.convertExpr(tag) + ")"
 		} else {
-			convertedTag = c.convertExpr(tag)
+			if tag != nil {
+				convertedTag = c.convertExpr(tag)
+			} else {
+				convertedTag = "true"
+			}
 		}
 		pre += indent("let condition = " + convertedTag + "\n")
 		result = pre + indent(result)
@@ -244,7 +269,7 @@ func (c *Context) convertAssign(node *ast.AssignStmt) string {
 		if ident, ok := expr.(*ast.Ident); ok {
 			if _, ok := ident.Obj.Decl.(*ast.AssignStmt); ok {
 				// not result.X
-				exprStr = ident.Name
+				exprStr = c.convertFieldName(ident.Name)
 			} else {
 				exprStr = c.convertExpr(expr)
 			}

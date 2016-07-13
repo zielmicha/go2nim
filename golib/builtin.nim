@@ -1,4 +1,4 @@
-import collections/interfaces, collections/exttype, collections/gcptrs
+import collections/interfaces, collections/exttype, collections/gcptrs, collections/goslice
 import macros
 
 exttypes:
@@ -6,6 +6,17 @@ exttypes:
     Error = iface((
       error(): string
     ))
+
+type Rune* = int32
+
+type
+  Map*[K, V] = ref object
+    # TODO
+    a: int
+
+proc panic*(err: string) =
+  # TODO
+  raise newException(Exception, "panic")
 
 macro makeObjectFromTuple(fields: typed, t: typed): expr =
   let typeName = t.getType[1]
@@ -21,6 +32,7 @@ macro makeObjectFromTuple(fields: typed, t: typed): expr =
     ret.add(newNimNode(nnkExprColonExpr).add(field, newNimNode(nnkBracketExpr).add(fields, newIntLitNode(i))))
     i += 1
 
+  ret.repr.echo
   return ret
 
 macro makeObjectFromSingleItem(item: typed, t: typed): expr =
@@ -50,6 +62,21 @@ proc make*[T, R](fields: R, t: typedesc[ref T]): gcptr[T] =
   ret[] = make(fields, T)
   return ret
 
+proc make*[T; R; N: static[int32]](fields: R, t: typedesc[GoArray[T, N]]): GoArray[T, N] =
+  panic("make goarray")
+
+proc make*[K, V, R](fields: R, t: typedesc[Map[K, V]]): Map[K, V] =
+  panic("make gomap")
+
+proc make*[T, R](fields: R, t: typedesc[GoSlice[T]]): GoSlice[T] =
+  panic("make goslice")
+
+proc make*[T](t: typedesc[GoSlice[T]]): GoSlice[T] =
+  panic("make goslice")
+
+proc make*[K, V](t: typedesc[Map[K, V]]): Map[K, V] =
+  panic("make gomap")
+
 proc makeNilPtr*[T](t: typedesc[gcptr[T]]): gcptr[T] =
   return makeGcptr[T](nil, nil)
 
@@ -63,9 +90,11 @@ proc convert*[T, R](t: typedesc[T], v: R): T =
 proc castInterface*[T, R](v: T, to: typedesc[R]): tuple[val: R, ok: bool] =
   return (convert(R, null), false) # TODO
 
-proc panic*(err: string) =
-  # TODO
-  raise newException(Exception, "panic")
+proc `go/`*(a: SomeInteger, b: SomeInteger): SomeInteger =
+  return a div b
+
+proc `go/`*(a: float, b: float): float =
+  return a / b
 
 when isMainModule:
   type

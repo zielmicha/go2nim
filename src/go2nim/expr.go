@@ -3,7 +3,7 @@ package go2nim
 import "go/ast"
 import "go/token"
 import "strings"
-import "fmt"
+import "strconv"
 
 func (c *Context) convertBinaryToken(tok token.Token) string {
 	switch tok {
@@ -13,8 +13,6 @@ func (c *Context) convertBinaryToken(tok token.Token) string {
 		return "-"
 	case token.MUL:
 		return "*"
-	case token.QUO:
-		return "/"
 	case token.REM:
 		return "mod"
 	case token.AND, token.LAND:
@@ -40,6 +38,7 @@ func (c *Context) convertBinaryToken(tok token.Token) string {
 	case token.GEQ:
 		return ">="
     default:
+		ast.Print(c.Fset, tok)
 		panic("unknown binary token")
 	}
 }
@@ -58,7 +57,7 @@ func (c *Context) convertUnaryToken(tok token.Token) string {
 		return "not "
 
     default:
-		fmt.Println(tok)
+		ast.Print(c.Fset, tok)
 		panic("unknown unary token")
 	}
 }
@@ -66,6 +65,19 @@ func (c *Context) convertUnaryToken(tok token.Token) string {
 func (c *Context) convertCompositeLiteral(expr *ast.CompositeLit, isPointer bool) string {
 	result := []string{}
 	isKv := false
+
+	switch typ := expr.Type.(type) {
+	case *ast.ArrayType:
+		// fill item type if needed
+		for _, node := range expr.Elts {
+			if sublit, ok := node.(*ast.CompositeLit); ok {
+				if sublit.Type == nil {
+					sublit.Type = typ.Elt
+				}
+			}
+		}
+	}
+
 	for _, node := range expr.Elts {
 		if kvexpr, ok := node.(*ast.KeyValueExpr); ok {
 			isKv = true
@@ -84,14 +96,18 @@ func (c *Context) convertCompositeLiteral(expr *ast.CompositeLit, isPointer bool
 	}
 
 	if expr.Type == nil {
-		return val
+		return wrapped
 	}
 
 	typeName := c.convertType(expr.Type)
 
 	switch expr.Type.(type) {
 	case *ast.MapType, *ast.ArrayType:
-		return wrapped + ".make(" + typeName + ")"
+		if len(result) == 0 {
+			return "make(" + typeName + ")"
+		} else {
+			return wrapped + ".make(" + typeName + ")"
+		}
 	default:
 		if isPointer {
 			typeName = "(ref " + typeName + ")"
@@ -130,7 +146,14 @@ func (c *Context) convertExpr(expr ast.Expr) string {
 		}
 		return c.convertExpr(node.Fun) + "(" + strings.Join(args, ", ") + ")"
 	case *ast.BinaryExpr:
-		return c.convertExpr(node.X) + " " + c.convertBinaryToken(node.Op) + " " + c.convertExpr(node.Y)
+		switch node.Op {
+		case token.AND_NOT:
+			return "(" + c.convertExpr(node.X) + " and (not " + c.convertExpr(node.Y) + ")" + ")"
+		case token.QUO:
+			return "`go/`(" + c.convertExpr(node.X) + ", " + c.convertExpr(node.Y) + ")"
+		default:
+			return "(" + c.convertExpr(node.X) + " " + c.convertBinaryToken(node.Op) + " " + c.convertExpr(node.Y) + ")"
+		}
 	case *ast.IndexExpr:
 		return c.convertExpr(node.X) + "[" + c.convertExpr(node.Index) + "]"
 	case *ast.KeyValueExpr:
@@ -165,6 +188,15 @@ func (c *Context) convertExpr(expr ast.Expr) string {
 
 	case *ast.BasicLit:
 		// TODO: convert string literals
+		switch node.Kind {
+		case token.CHAR:
+			if strings.HasPrefix(node.Value, "'\\u") || strings.HasPrefix(node.Value, "'\\U") {
+				return "Rune(0x" + node.Value[3:len(node.Value)-1] + ")"
+			}
+			if node.Value == "'\\n'" {
+				return "'\\L'"
+			}
+		}
 		return node.Value
 	case *ast.CompositeLit:
 		return c.convertCompositeLiteral(node, false)
@@ -175,6 +207,9 @@ func (c *Context) convertExpr(expr ast.Expr) string {
 	case *ast.Ident:
 		if node.Name == "nil" {
 			return "null"
+		}
+		if node.Name == "iota" {
+			return strconv.Itoa(c.iotaValue)
 		}
 		if _, ok := c.resultVariables[node.Name]; ok {
 			return "result." + c.convertFuncName(node.Name)
