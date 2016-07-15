@@ -60,7 +60,13 @@ func (c *Context) convertFuncDecl(fdecl *ast.FuncDecl) string {
 	if isPublic {
 		name += "*"
 	}
-	return "proc " + name + "(" + paramList + "): " + c.convertReturnType(fdecl.Type.Results)
+	result := "proc " + name + "(" + paramList + "): " + c.convertReturnType(fdecl.Type.Results) + " {.discardable"
+	if fdecl.Recv != nil {
+		if _, ok := fdecl.Recv.List[0].Type.(*ast.StarExpr); ok {
+			result += ", gomethod"
+		}
+	}
+	return result + ".}"
 }
 
 func (c *Context) convertFuncDecls(decls []ast.Decl) string {
@@ -92,37 +98,15 @@ func (c *Context) walkDecls(decls []ast.Decl) {
 				c.publicNames[c.downcaseFirstLetter(name)] = true
 			}
 		}
-	}
-}
 
-type ListIdentifiers struct {
-	idents []string
-}
-
-func (l *ListIdentifiers) Visit(node ast.Node) ast.Visitor {
-	switch node := node.(type) {
-	case *ast.Ident:
-		l.idents = append(l.idents, node.Name)
-	}
-	return l
-}
-
-func (c *Context) getIdentifiers(node ast.Node) []string {
-	visitor := &ListIdentifiers{idents: []string{}}
-	ast.Walk(visitor, node)
-	return visitor.idents
-}
-
-func (c *Context) getAssignedIdentifiers(decl ast.Decl) []string {
-	result := []string{}
-	gdecl := decl.(*ast.GenDecl)
-	for _, gspec := range gdecl.Specs {
-		spec := gspec.(*ast.ValueSpec)
-		for _, name := range spec.Names {
-			result = append(result, name.Name)
+		if gdecl, ok := decl.(*ast.GenDecl); ok && gdecl.Tok == token.TYPE {
+			tspec := gdecl.Specs[0].(*ast.TypeSpec)
+			name := tspec.Name.Name
+			if c.isPublic(name) {
+				c.publicNames[c.upcaseFirstLetter(name)] = true
+			}
 		}
 	}
-	return result
 }
 
 func (c *Context) sortDecls(decls []ast.Decl) []ast.Decl {
@@ -170,7 +154,7 @@ func (c *Context) convertVariables(decls []ast.Decl, which token.Token) string {
 	gdecls = c.sortDecls(gdecls)
 	for _, decl := range gdecls {
 		gdecl := decl.(*ast.GenDecl)
-		result += c.convertVariableSection(gdecl.Tok, gdecl.Specs) + "\n"
+		result += c.convertVariableSection(gdecl.Tok, gdecl.Specs, true) + "\n"
 	}
 	return result
 }

@@ -65,6 +65,8 @@ func (c *Context) convertUnaryToken(tok token.Token) string {
 func (c *Context) convertCompositeLiteral(expr *ast.CompositeLit, isPointer bool) string {
 	result := []string{}
 	isKv := false
+	itemSuffix := ""
+	itemPrefix := ""
 
 	switch typ := expr.Type.(type) {
 	case *ast.ArrayType:
@@ -76,6 +78,13 @@ func (c *Context) convertCompositeLiteral(expr *ast.CompositeLit, isPointer bool
 				}
 			}
 		}
+
+		itemType := c.convertType(typ.Elt)
+		switch itemType {
+		case "float32", "float64", "int64", "uint64":
+			itemPrefix = "" + itemType + "("
+			itemSuffix = ")"
+		}
 	}
 
 	for _, node := range expr.Elts {
@@ -83,7 +92,7 @@ func (c *Context) convertCompositeLiteral(expr *ast.CompositeLit, isPointer bool
 			isKv = true
 			result = append(result, c.convertExpr(kvexpr.Key) + ": " + c.convertExpr(kvexpr.Value))
 		} else {
-			result = append(result, c.convertExpr(node))
+			result = append(result, itemPrefix + c.convertExpr(node) + itemSuffix)
 		}
 	}
 
@@ -117,6 +126,17 @@ func (c *Context) convertCompositeLiteral(expr *ast.CompositeLit, isPointer bool
 		} else {
 			return "make((" + val + "), " + typeName + ")"
 		}
+	}
+}
+
+func (c *Context) convertExprMulti(expr ast.Expr) string {
+	var node interface{} = expr
+
+	switch node := node.(type) {
+	case *ast.TypeAssertExpr:
+		return "maybeCastInterface(" + c.convertExpr(node.X) + ", to=" + c.convertType(node.Type) + ")"
+	default:
+		return c.convertExpr(expr)
 	}
 }
 
@@ -196,7 +216,43 @@ func (c *Context) convertExpr(expr ast.Expr) string {
 			if node.Value == "'\\n'" {
 				return "'\\L'"
 			}
+		case token.FLOAT:
+			if !strings.HasPrefix(node.Value, "0x") && !strings.Contains(node.Value, ".") && !strings.Contains(node.Value, "-") && strings.Contains(node.Value, "e") {
+				// FIXME: potential overflows
+				split := strings.Split(node.Value, "e")
+				val, err := strconv.Atoi(split[0])
+				if err != nil { panic(err) }
+				exp, err := strconv.Atoi(split[1])
+				if err != nil { panic(err) }
+				var uval uint64
+				var sgn int
+				if val >= 0 {
+					uval = uint64(val)
+					sgn = 1
+				} else {
+					uval = uint64(-val)
+					sgn = -1
+				}
+				if exp == 19 && uval == 1 {
+					// Nim can't represent 1e19...
+					return "1000000000000000000 * 10"
+				}
+				if exp > 18 {
+					return node.Value
+				}
+				for exp > 0 {
+					uval *= 10
+					exp --
+				}
+				result := strconv.FormatUint(uval, 10)
+				if sgn == -1 {
+					result = "-" + result
+				}
+				return result
+			}
+			return node.Value
 		}
+
 		return node.Value
 	case *ast.CompositeLit:
 		return c.convertCompositeLiteral(node, false)
@@ -215,7 +271,7 @@ func (c *Context) convertExpr(expr ast.Expr) string {
 			if len(c.resultVariables) == 1 {
 				return "result"
 			} else {
-				return "result." + c.convertFuncName(node.Name)
+				return "result." + c.quoteKeywords(node.Name)
 			}
 		}
 		return c.convertFuncName(node.Name)

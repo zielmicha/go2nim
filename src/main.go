@@ -15,7 +15,7 @@ func main() {
 
 	files := []*ast.File{}
 	for _, fn := range fns {
-		if strings.HasSuffix(fn, "_test.go") {
+		if strings.HasSuffix(fn, "_test.go") || strings.HasSuffix(fn, "_amd64.go") {
 			continue
 		}
 		data, err := ioutil.ReadFile(fn)

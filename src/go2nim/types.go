@@ -48,10 +48,10 @@ func (c *Context) convertType(expr ast.Expr) string {
 		return c.convertType(node.X)
 	case *ast.Ident:
 		switch node.Name {
-		case "bool", "byte", "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64", "string":
+		case "bool", "byte", "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64", "string", "float", "float64", "float32":
 			return node.Name
 		default:
-			return c.upcaseFirstLetter(node.Name)
+			return c.convertTypeName(node.Name)
 		}
 	case *ast.FuncType:
 		return "(proc(" + c.convertParamList(node.Params, nil) + "): " + c.convertReturnType(node.Results) + ")"

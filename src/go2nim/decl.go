@@ -10,7 +10,7 @@ func (c *Context) convertDecl(decl ast.Decl) string {
 	case *ast.GenDecl:
 		switch node.Tok {
 		case token.CONST, token.VAR:
-			return c.convertVariableSection(node.Tok, node.Specs)
+			return c.convertVariableSection(node.Tok, node.Specs, false)
 		case token.TYPE:
 			panic("not implemented")
 		default:
@@ -24,7 +24,7 @@ func (c *Context) convertDecl(decl ast.Decl) string {
 	}
 }
 
-func (c *Context) convertVariableSection(sectionToken token.Token, specs []ast.Spec) string {
+func (c *Context) convertVariableSection(sectionToken token.Token, specs []ast.Spec, public bool) string {
 	result := ""
 	if sectionToken == token.VAR {
 		result += "var "
@@ -44,6 +44,9 @@ func (c *Context) convertVariableSection(sectionToken token.Token, specs []ast.S
 				value = spec.Values[i]
 			}
 			part := c.convertFuncName(name.Name)
+			if public && c.isPublic(name.Name) {
+				part += "*"
+			}
 			if spec.Type != nil {
 				part += ": " + c.convertType(spec.Type)
 			}

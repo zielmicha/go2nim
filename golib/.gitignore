@@ -3,3 +3,5 @@ errors.nim
 io.nim
 unicode.nim
 unicode/utf8.nim
+strings.nim
+strconv.nim

@@ -4,12 +4,20 @@ import "strings"
 import "go/token"
 import "go/ast"
 
+type Loop struct {
+	name string
+	breakStmt string
+	continueStmt string
+}
+
 type Context struct {
 	Fset *token.FileSet
 	resultVariables map[string]bool
 	resultNames []string
 	publicNames map[string]bool
 	assignedTo map[string]bool
+	loops []Loop
+	loopCounter int
 	iotaValue int
 }
 

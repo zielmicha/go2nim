@@ -3,6 +3,7 @@ package go2nim
 import "go/ast"
 import "go/token"
 import "strings"
+import "strconv"
 
 func (c *Context) walkStmt(stmt ast.Stmt) {
 	var node interface{} = stmt
@@ -14,6 +15,9 @@ func (c *Context) walkStmt(stmt ast.Stmt) {
 			}
 		}
 	case *ast.BlockStmt:
+		if node == nil {
+			return
+		}
 		for _, child := range node.List {
 			c.walkStmt(child)
 		}
@@ -51,6 +55,9 @@ func (c *Context) walkStmt(stmt ast.Stmt) {
 
 
 func (c *Context) convertStmt(stmt ast.Stmt) string {
+	if stmt == nil {
+		return ""
+	}
 	var node interface{} = stmt
 	switch node := node.(type) {
 	case *ast.AssignStmt:
@@ -61,11 +68,11 @@ func (c *Context) convertStmt(stmt ast.Stmt) string {
 		// TODO: labels, goto
 		switch node.Tok {
 		case token.BREAK:
-			return "break"
+			return c.loops[len(c.loops)-1].breakStmt
 		case token.CONTINUE:
-			return "continue"
+			return c.loops[len(c.loops)-1].continueStmt
 		case token.GOTO:
-			panic("goto not yet supported")
+			return "break " + c.quoteLabel(node.Label.Name)
 		default:
 			panic("invalid branch keyword")
 		}
@@ -79,22 +86,7 @@ func (c *Context) convertStmt(stmt ast.Stmt) string {
 	case *ast.ExprStmt:
 		return c.convertExpr(node.X)
 	case *ast.ForStmt:
-		var cond string
-		if node.Cond == nil {
-			cond = "true"
-		} else {
-			cond = c.convertExpr(node.Cond)
-		}
-		body := c.convertBlockStmt(node.Body)
-		if node.Post != nil {
-			body += "\n" + c.convertStmt(node.Post)
-		}
-		result := "while " + cond + ":\n" + indent(body)
-		if node.Init != nil {
-			init := c.convertStmt(node.Init) + "\n"
-			result = "block:\n" + indent(init + result)
-		}
-		return result
+		return c.convertFor(node)
 	case *ast.GoStmt:
 		panic("not implemented")
 	case *ast.IfStmt:
@@ -139,7 +131,9 @@ func (c *Context) convertStmt(stmt ast.Stmt) string {
 			}
 			result = "for " + key + " in " + c.convertExpr(node.X) + ":\n"
 		}
-		result += indent(c.convertBlockStmt(node.Body))
+		newc := c.copy()
+		newc.loops = append(newc.loops, Loop{continueStmt: "continue", breakStmt: "break"})
+		result += indent(newc.convertBlockStmt(node.Body))
 		return result
 	case *ast.ReturnStmt:
 		result := []string{}
@@ -189,6 +183,42 @@ func (c *Context) convertStmt(stmt ast.Stmt) string {
 	}
 }
 
+func (c *Context) convertFor(node *ast.ForStmt) string {
+	var cond string
+	if node.Cond == nil {
+		cond = "true"
+	} else {
+		cond = c.convertExpr(node.Cond)
+	}
+	loop := Loop{}
+	loopName := "loop" + strconv.Itoa(c.loopCounter)
+	c.loopCounter ++
+	if node.Post != nil {
+		loop.breakStmt = "break " + loopName
+		loop.continueStmt = "break " + loopName + "Continue"
+	} else {
+		loop.breakStmt = "break"
+		loop.continueStmt = "continue"
+	}
+	newc := c.copy()
+	newc.loops = append(newc.loops, loop)
+	body := newc.convertBlockStmt(node.Body)
+	if node.Post != nil {
+		// FIXME: this is invalid together with continue/break
+		body = "block " + loopName + "Continue:\n" + indent(body) + "\n" + c.convertStmt(node.Post)
+	}
+	result := "while " + cond + ":\n" + indent(body)
+	if node.Init != nil {
+		init := c.convertStmt(node.Init) + "\n"
+		result = init + result
+	}
+	if node.Post != nil || node.Init != nil {
+		result = "block " + loopName + ":\n" + indent(result)
+	}
+	return result
+
+}
+
 func (c *Context) convertSwitch(body *ast.BlockStmt, init ast.Stmt, tag ast.Expr, isTypeSwitch bool, typeSwitchVar string) string {
 	// TODO: special case constant-only switches
 	switchOn := "true"
@@ -232,7 +262,9 @@ func (c *Context) convertSwitch(body *ast.BlockStmt, init ast.Stmt, tag ast.Expr
 				cond = append(cond, switchOn + " == " + expr)
 			}
 			result += strings.Join(cond, " or ") + ":\n"
-			result += indent(c.convertStmtList(caseBody)) + "\n"
+			newc := c.copy()
+			newc.loops = append(newc.loops, Loop{continueStmt: "continue", breakStmt: "break"})
+			result += indent(newc.convertStmtList(caseBody)) + "\n"
 		}
 	}
 
@@ -266,7 +298,7 @@ func (c *Context) convertAssign(node *ast.AssignStmt) string {
 	lhsL := []string{}
 	for _, expr := range node.Lhs {
 		var exprStr string
-		if ident, ok := expr.(*ast.Ident); ok {
+		if ident, ok := expr.(*ast.Ident); ok && ident.Obj != nil {
 			if _, ok := ident.Obj.Decl.(*ast.AssignStmt); ok {
 				// not result.X
 				exprStr = c.convertFieldName(ident.Name)
@@ -280,8 +312,12 @@ func (c *Context) convertAssign(node *ast.AssignStmt) string {
 	}
 
 	rhsL := []string{}
-	for _, expr := range node.Rhs {
-		rhsL = append(rhsL, c.convertExpr(expr))
+	if len(node.Rhs) == 1 && len(node.Lhs) > 1 {
+		rhsL = []string{ c.convertExprMulti(node.Rhs[0]) }
+	} else {
+		for _, expr := range node.Rhs {
+			rhsL = append(rhsL, c.convertExpr(expr))
+		}
 	}
 
 	lhs := strings.Join(lhsL, ", ")
@@ -304,6 +340,7 @@ func (c *Context) convertAssign(node *ast.AssignStmt) string {
 		if len(lhsL) != 1 {
 			panic("bad assigment token")
 		}
+
 		var convertedToken string
 		switch(node.Tok) {
 		case token.ADD_ASSIGN:
@@ -313,19 +350,69 @@ func (c *Context) convertAssign(node *ast.AssignStmt) string {
 		case token.MUL_ASSIGN:
 			convertedToken = "*="
 		default:
-			panic("bad assigment token")
+			switch(node.Tok) {
+			case token.AND_ASSIGN:
+				convertedToken = "and"
+			case token.OR_ASSIGN:
+				convertedToken = "or"
+			case token.XOR_ASSIGN:
+				convertedToken = "xor"
+			case token.SHL_ASSIGN:
+				convertedToken = "shl"
+			case token.SHR_ASSIGN:
+				convertedToken = "shr"
+			case token.QUO_ASSIGN:
+				// TODO: side effects?
+				return lhs + " = `go/`(" + lhs + ", " + rhs + ")"
+			default:
+				ast.Print(c.Fset, node)
+				panic("bad assigment token")
+			}
+			// TODO: side effects?
+			return lhs + " = " + lhs + " " + convertedToken + " (" + rhs + ")"
 		}
 		return lhs + " " + convertedToken + " " + rhs
 	}
 }
 
 func (c *Context) convertBlockStmt(stmts *ast.BlockStmt) string {
+	if stmts == nil {
+		return "discard"
+	}
 	return c.convertStmtList(stmts.List)
 }
 
 func (c *Context) convertStmtList(stmts []ast.Stmt) string {
 	if len(stmts) == 0 {
 		return "discard\n"
+	}
+
+	var label string = ""
+	var labelPos int
+	var labelStmt ast.Stmt
+	for i, stmt := range stmts {
+		if labeled, ok := stmt.(*ast.LabeledStmt); ok {
+			label = labeled.Label.Name
+			labelPos = i
+			labelStmt = labeled.Stmt
+		}
+	}
+
+	if label != "" {
+		stmts[labelPos] = labelStmt
+
+		var firstGoto int
+		for i, stmt := range stmts {
+			if c.containsGoto(stmt, "") {
+				firstGoto = i
+				break
+			}
+		}
+
+		result := c.convertStmtList(stmts[:firstGoto])
+		result += "\nblock " + c.quoteLabel(label) + ":\n" + indent(c.convertStmtList(stmts[firstGoto:labelPos])) + "\n"
+		result += c.convertStmtList(stmts[labelPos:])
+		return result
 	}
 
 	result := []string{}
