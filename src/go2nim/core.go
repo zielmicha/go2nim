@@ -19,18 +19,31 @@ type Context struct {
 	loops []Loop
 	loopCounter int
 	iotaValue int
+
+	currentScopeVariables map[string]bool
 }
 
 func NewContext() *Context {
 	return &Context{
 		Fset: token.NewFileSet(),
 		publicNames: map[string]bool{},
-		assignedTo: map[string]bool{}}
+		assignedTo: map[string]bool{},
+		currentScopeVariables: map[string]bool{}}
 }
 
 func (c *Context) copy() *Context {
 	newc := *c
 	return &newc
+}
+
+func (c *Context) newScope() *Context {
+	newc := c.copy()
+	newc.currentScopeVariables = map[string]bool{}
+	return newc
+}
+
+func (c *Context) variableDeclared(name string) {
+	c.currentScopeVariables[name] = true
 }
 
 func fromLiteralString(item *ast.BasicLit) string {

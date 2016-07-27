@@ -86,22 +86,23 @@ func (c *Context) convertStmt(stmt ast.Stmt) string {
 	case *ast.ExprStmt:
 		return c.convertExpr(node.X)
 	case *ast.ForStmt:
-		return c.convertFor(node)
+		return c.newScope().convertFor(node)
 	case *ast.GoStmt:
 		panic("not implemented")
 	case *ast.IfStmt:
-		cond := c.convertExpr(node.Cond)
+		newc := c.newScope()
+		cond := newc.convertExpr(node.Cond)
 		if node.Init != nil {
-			cond = "(" + c.convertStmt(node.Init) + "; " + cond + ")"
+			cond = "(" + newc.convertStmt(node.Init) + "; " + cond + ")"
 		}
 		result := "if " + cond + ":\n"
-		result += indent(c.convertBlockStmt(node.Body))
+		result += indent(newc.convertBlockStmt(node.Body))
 		if node.Else != nil {
 			switch node.Else.(type) {
 			case *ast.BlockStmt:
-				result += "\nelse:\n" + indent(c.convertBlockStmt(node.Else.(*ast.BlockStmt)))
+				result += "\nelse:\n" + indent(newc.convertBlockStmt(node.Else.(*ast.BlockStmt)))
 			case *ast.IfStmt:
-				result += "\nel" + c.convertStmt(node.Else)
+				result += "\nel" + newc.convertStmt(node.Else)
 			default:
 				panic("unknown else")
 			}
@@ -121,17 +122,18 @@ func (c *Context) convertStmt(stmt ast.Stmt) string {
 	case *ast.RangeStmt:
 		// ast.Print(c.Fset, node)
 		var result string
+
+		newc := c.newScope()
 		if node.Value == nil {
-			key := c.convertExpr(node.Key)
-			result = "for " + key + " in 0..<len(" + c.convertExpr(node.X) + "):\n"
+			key := newc.convertExpr(node.Key)
+			result = "for " + key + " in 0..<len(" + newc.convertExpr(node.X) + "):\n"
 		} else {
-			key := c.convertExpr(node.Value)
+			key := newc.convertExpr(node.Value)
 			if node.Key != nil {
-				key = c.convertExpr(node.Key) + ", " + key
+				key = newc.convertExpr(node.Key) + ", " + key
 			}
 			result = "for " + key + " in " + c.convertExpr(node.X) + ":\n"
 		}
-		newc := c.copy()
 		newc.loops = append(newc.loops, Loop{continueStmt: "continue", breakStmt: "break"})
 		result += indent(newc.convertBlockStmt(node.Body))
 		return result
@@ -165,7 +167,7 @@ func (c *Context) convertStmt(stmt ast.Stmt) string {
 	case *ast.SendStmt:
 		panic("not implemented")
 	case *ast.SwitchStmt:
-		return c.convertSwitch(node.Body, node.Init, node.Tag, false, "")
+		return c.newScope().convertSwitch(node.Body, node.Init, node.Tag, false, "")
 	case *ast.TypeSwitchStmt:
 		//ast.Print(c.Fset, node.Assign)
 		assign := node.Assign.(*ast.AssignStmt)
@@ -296,20 +298,8 @@ func (c *Context) convertSwitch(body *ast.BlockStmt, init ast.Stmt, tag ast.Expr
 
 func (c *Context) convertAssign(node *ast.AssignStmt) string {
 	lhsL := []string{}
-	for _, expr := range node.Lhs {
-		var exprStr string
-		if ident, ok := expr.(*ast.Ident); ok && ident.Obj != nil {
-			if _, ok := ident.Obj.Decl.(*ast.AssignStmt); ok {
-				// not result.X
-				exprStr = c.convertFieldName(ident.Name)
-			} else {
-				exprStr = c.convertExpr(expr)
-			}
-		} else {
-			exprStr = c.convertExpr(expr)
-		}
-		lhsL = append(lhsL, exprStr)
-	}
+	variablesRedeclared := []string{}
+	variablesNotRedeclared := []string{}
 
 	rhsL := []string{}
 	if len(node.Rhs) == 1 && len(node.Lhs) > 1 {
@@ -319,9 +309,32 @@ func (c *Context) convertAssign(node *ast.AssignStmt) string {
 			rhsL = append(rhsL, c.convertExpr(expr))
 		}
 	}
+	rhs := strings.Join(rhsL, ", ")
+
+	for i, expr := range node.Lhs {
+		var exprStr string
+		if ident, ok := expr.(*ast.Ident); ok && ident.Obj != nil {
+			if _, ok := ident.Obj.Decl.(*ast.AssignStmt); ok {
+				// not result.X
+				exprStr = c.convertFieldName(ident.Name)
+
+				varDef := "var " + ident.Name + ": type((" + rhs + ")[" + strconv.Itoa(i) + "])"
+				if _, ok := c.currentScopeVariables[ident.Name]; ok && (ident.Name != "_") {
+					variablesRedeclared = append(variablesRedeclared, varDef)
+				} else {
+					variablesNotRedeclared = append(variablesNotRedeclared, varDef)
+				}
+				c.variableDeclared(ident.Name)
+			} else {
+				exprStr = c.convertExpr(expr)
+			}
+		} else {
+			exprStr = c.convertExpr(expr)
+		}
+		lhsL = append(lhsL, exprStr)
+	}
 
 	lhs := strings.Join(lhsL, ", ")
-	rhs := strings.Join(rhsL, ", ")
 
 	if len(lhsL) > 1 {
 		lhs = "(" + lhs + ")"
@@ -335,7 +348,13 @@ func (c *Context) convertAssign(node *ast.AssignStmt) string {
 	case token.ASSIGN:
 		return lhs + " = " + rhs
 	case token.DEFINE:
-		return "var " + lhs + " = " + rhs
+		if len(variablesRedeclared) == 0 {
+			return "var " + lhs + " = " + rhs
+		} else if len(variablesNotRedeclared) == 0 {
+			return lhs + " = " + rhs
+		} else {
+			return strings.Join(variablesNotRedeclared, "\n") + "\n" + lhs + " = " + rhs
+		}
 	default:
 		if len(lhsL) != 1 {
 			panic("bad assigment token")

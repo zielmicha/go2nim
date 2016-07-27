@@ -42,6 +42,9 @@ func (c *Context) quoteLabel(name string) string {
 }
 
 func (c *Context) quoteKeywords(name string) string {
+	if name == "_" {
+		return "_"
+	}
 	if name[0] == '_' {
 		return "underscore" + name[1:]
 	}

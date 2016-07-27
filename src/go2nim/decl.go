@@ -44,6 +44,7 @@ func (c *Context) convertVariableSection(sectionToken token.Token, specs []ast.S
 				value = spec.Values[i]
 			}
 			part := c.convertFuncName(name.Name)
+			c.variableDeclared(name.Name)
 			if public && c.isPublic(name.Name) {
 				part += "*"
 			}
