@@ -14,8 +14,20 @@ func main() {
 	context := go2nim.NewContext()
 
 	files := []*ast.File{}
+
+	testsOnly := true
+
 	for _, fn := range fns {
-		if strings.HasSuffix(fn, "_test.go") || strings.HasSuffix(fn, "_amd64.go") {
+		if !strings.HasSuffix(fn, "_test.go") {
+			testsOnly = false
+		}
+	}
+
+	for _, fn := range fns {
+		if !testsOnly && strings.HasSuffix(fn, "_test.go") {
+			continue
+		}
+		if strings.HasSuffix(fn, "_amd64.go") {
 			continue
 		}
 		data, err := ioutil.ReadFile(fn)

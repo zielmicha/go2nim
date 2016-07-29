@@ -134,7 +134,11 @@ func (c *Context) convertParamList(fields *ast.FieldList, recv *ast.FieldList) s
 
 	if recv != nil {
 		receiver := recv.List[0]
-		recvParam := receiver.Names[0].Name + ": " + c.convertType(receiver.Type)
+		recvName := "_"
+		if len(receiver.Names) > 0 {
+			recvName = receiver.Names[0].Name
+		}
+		recvParam := recvName + ": " + c.convertType(receiver.Type)
 		result = append([]string{recvParam}, result...)
 	}
 

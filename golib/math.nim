@@ -14,5 +14,11 @@ proc naN*(): float64 =
 proc float32frombits*(b: uint32): float32 =
   return cast[float32](b)
 
+proc float32bits*(b: float32): uint32 =
+  return cast[uint32](b)
+
+proc float64bits*(b: float64): uint64 =
+  return cast[uint64](b)
+
 proc float64frombits*(b: uint64): float64 =
   return cast[float64](b)

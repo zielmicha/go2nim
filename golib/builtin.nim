@@ -9,6 +9,8 @@ exttypes:
 
 type Rune* = int32
 
+type uintptr* = int
+
 type
   Map*[K, V] = ref object
     # TODO
@@ -128,6 +130,12 @@ proc append*[T](slice: GoSlice[T], elements: GoSlice[T]): GoSlice[T] =
 
 proc append*[T](slice: GoSlice[T], elements: varargs[T]): GoSlice[T] =
   return append(slice, elements)
+
+proc append*[T](slice: GoSlice[T], a: T, b: T): GoSlice[T] =
+  return append(slice, @[a, b])
+
+proc append*[T](slice: GoSlice[T], a: T, b: T, c: T): GoSlice[T] =
+  return append(slice, @[a, b, c])
 
 macro gomethod*(def: untyped): stmt =
   # support for gcptr receivers

@@ -216,6 +216,11 @@ func (c *Context) convertExpr(expr ast.Expr) string {
 			if node.Value == "'\\n'" {
 				return "'\\L'"
 			}
+		case token.STRING:
+			// TODO
+			if strings.HasPrefix(node.Value, "`") {
+				return "r\"" + node.Value[1:len(node.Value)-1] + "\""
+			}
 		case token.FLOAT:
 			if !strings.HasPrefix(node.Value, "0x") && !strings.Contains(node.Value, ".") && !strings.Contains(node.Value, "-") && strings.Contains(node.Value, "e") {
 				// FIXME: potential overflows
@@ -267,11 +272,17 @@ func (c *Context) convertExpr(expr ast.Expr) string {
 		if node.Name == "iota" {
 			return strconv.Itoa(c.iotaValue)
 		}
-		if _, ok := c.resultVariables[node.Name]; ok {
-			if len(c.resultVariables) == 1 {
-				return "result"
-			} else {
-				return "result." + c.quoteKeywords(node.Name)
+		// Is this result variable?
+		//ast.Print(c.Fset, node)
+		if node.Obj != nil {
+			if _, ok := node.Obj.Decl.(*ast.Field); ok {
+				if _, ok := c.resultVariables[node.Name]; ok {
+					if len(c.resultVariables) == 1 {
+						return "result"
+					} else {
+						return "result." + c.quoteKeywords(node.Name)
+					}
+				}
 			}
 		}
 		return c.convertFuncName(node.Name)

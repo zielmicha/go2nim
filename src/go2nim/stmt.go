@@ -32,6 +32,7 @@ func (c *Context) walkStmt(stmt ast.Stmt) {
 			c.walkStmt(node.Init)
 		}
 		c.walkStmt(node.Body)
+		c.walkStmt(node.Post)
 	case *ast.IfStmt:
 
 		if node.Else != nil {
@@ -80,6 +81,7 @@ func (c *Context) convertStmt(stmt ast.Stmt) string {
 		return c.convertDecl(node.Decl)
 	case *ast.DeferStmt:
 		// TODO: recover (use `return` from defer)
+		// FIXME: args are evaluated imm
 		return "defer: " + c.convertExpr(node.Call)
 	case *ast.EmptyStmt:
 		panic("not implemented")
@@ -88,21 +90,25 @@ func (c *Context) convertStmt(stmt ast.Stmt) string {
 	case *ast.ForStmt:
 		return c.newScope().convertFor(node)
 	case *ast.GoStmt:
-		panic("not implemented")
+		return "go " + c.convertExpr(node.Call)
 	case *ast.IfStmt:
 		newc := c.newScope()
+		var initStr string
+		if node.Init != nil {
+			initStr = newc.convertStmt(node.Init)
+		}
 		cond := newc.convertExpr(node.Cond)
 		if node.Init != nil {
-			cond = "(" + newc.convertStmt(node.Init) + "; " + cond + ")"
+			cond = "(" + initStr + "; " + cond + ")"
 		}
 		result := "if " + cond + ":\n"
 		result += indent(newc.convertBlockStmt(node.Body))
 		if node.Else != nil {
 			switch node.Else.(type) {
 			case *ast.BlockStmt:
-				result += "\nelse:\n" + indent(newc.convertBlockStmt(node.Else.(*ast.BlockStmt)))
+				result += "\nelse:\n" + indent(c.newScope().convertBlockStmt(node.Else.(*ast.BlockStmt)))
 			case *ast.IfStmt:
-				result += "\nel" + newc.convertStmt(node.Else)
+				result += "\nel" + c.convertStmt(node.Else)
 			default:
 				panic("unknown else")
 			}
@@ -170,15 +176,22 @@ func (c *Context) convertStmt(stmt ast.Stmt) string {
 		return c.newScope().convertSwitch(node.Body, node.Init, node.Tag, false, "")
 	case *ast.TypeSwitchStmt:
 		//ast.Print(c.Fset, node.Assign)
-		assign := node.Assign.(*ast.AssignStmt)
-		if len(assign.Rhs) != 1 || len(assign.Lhs) > 1 {
-			panic("invalid type switch")
-		}
+
 		var typeSwitchVar string
-		if len(assign.Lhs) > 0 {
-			typeSwitchVar = assign.Lhs[0].(*ast.Ident).Name
+		var tag ast.Expr
+
+		if assign, ok := node.Assign.(*ast.AssignStmt); ok {
+			if len(assign.Rhs) != 1 || len(assign.Lhs) > 1 {
+				panic("invalid type switch")
+			}
+			if len(assign.Lhs) > 0 {
+				typeSwitchVar = assign.Lhs[0].(*ast.Ident).Name
+			}
+			tag = assign.Rhs[0].(*ast.TypeAssertExpr).X
+		} else {
+			tag = node.Assign.(*ast.ExprStmt).X.(*ast.TypeAssertExpr).X
 		}
-		tag := assign.Rhs[0].(*ast.TypeAssertExpr).X
+
 		return c.convertSwitch(node.Body, node.Init, tag, true, typeSwitchVar)
 	default:
 		panic("bad stmt")
@@ -204,6 +217,12 @@ func (c *Context) convertFor(node *ast.ForStmt) string {
 	}
 	newc := c.copy()
 	newc.loops = append(newc.loops, loop)
+
+	var init string
+	if node.Init != nil {
+		init = c.convertStmt(node.Init) + "\n"
+	}
+
 	body := newc.convertBlockStmt(node.Body)
 	if node.Post != nil {
 		// FIXME: this is invalid together with continue/break
@@ -211,7 +230,6 @@ func (c *Context) convertFor(node *ast.ForStmt) string {
 	}
 	result := "while " + cond + ":\n" + indent(body)
 	if node.Init != nil {
-		init := c.convertStmt(node.Init) + "\n"
 		result = init + result
 	}
 	if node.Post != nil || node.Init != nil {
@@ -264,7 +282,7 @@ func (c *Context) convertSwitch(body *ast.BlockStmt, init ast.Stmt, tag ast.Expr
 				cond = append(cond, switchOn + " == " + expr)
 			}
 			result += strings.Join(cond, " or ") + ":\n"
-			newc := c.copy()
+			newc := c.newScope()
 			newc.loops = append(newc.loops, Loop{continueStmt: "continue", breakStmt: "break"})
 			result += indent(newc.convertStmtList(caseBody)) + "\n"
 		}
@@ -272,7 +290,7 @@ func (c *Context) convertSwitch(body *ast.BlockStmt, init ast.Stmt, tag ast.Expr
 
 	if defaultCase != nil {
 		result += "else:\n"
-		result += indent(c.convertStmtList(defaultCase.Body))
+		result += indent(c.newScope().convertStmtList(defaultCase.Body))
 	}
 
 	if tag != nil || init != nil {
@@ -314,7 +332,9 @@ func (c *Context) convertAssign(node *ast.AssignStmt) string {
 	for i, expr := range node.Lhs {
 		var exprStr string
 		if ident, ok := expr.(*ast.Ident); ok && ident.Obj != nil {
-			if _, ok := ident.Obj.Decl.(*ast.AssignStmt); ok {
+			if _, ok := ident.Obj.Decl.(*ast.Field); ok {
+				exprStr = c.convertExpr(expr)
+			} else {
 				// not result.X
 				exprStr = c.convertFieldName(ident.Name)
 
@@ -325,13 +345,24 @@ func (c *Context) convertAssign(node *ast.AssignStmt) string {
 					variablesNotRedeclared = append(variablesNotRedeclared, varDef)
 				}
 				c.variableDeclared(ident.Name)
-			} else {
-				exprStr = c.convertExpr(expr)
 			}
 		} else {
 			exprStr = c.convertExpr(expr)
 		}
 		lhsL = append(lhsL, exprStr)
+	}
+
+	// Count...
+	underscoreCount := 0
+	nonunderscoreStmt := ""
+	nonunderscoreStmtI := -1
+	for i, val := range lhsL {
+		if val == "_" {
+			underscoreCount ++
+		} else {
+			nonunderscoreStmt = val
+			nonunderscoreStmtI = i
+		}
 	}
 
 	lhs := strings.Join(lhsL, ", ")
@@ -342,6 +373,16 @@ func (c *Context) convertAssign(node *ast.AssignStmt) string {
 
 	if len(rhsL) > 1 {
 		rhs = "(" + rhs + ")"
+	}
+
+	if underscoreCount == len(lhsL) - 1 {
+		lhs = nonunderscoreStmt
+		if len(lhsL) != 1 {
+			rhs = rhs + "[" + strconv.Itoa(nonunderscoreStmtI) + "]"
+		}
+	}
+	if underscoreCount == len(lhsL) {
+		return "discard " + rhs
 	}
 
 	switch(node.Tok) {
@@ -420,7 +461,7 @@ func (c *Context) convertStmtList(stmts []ast.Stmt) string {
 	if label != "" {
 		stmts[labelPos] = labelStmt
 
-		var firstGoto int
+		var firstGoto int = -1
 		for i, stmt := range stmts {
 			if c.containsGoto(stmt, "") {
 				firstGoto = i
@@ -428,10 +469,12 @@ func (c *Context) convertStmtList(stmts []ast.Stmt) string {
 			}
 		}
 
-		result := c.convertStmtList(stmts[:firstGoto])
-		result += "\nblock " + c.quoteLabel(label) + ":\n" + indent(c.convertStmtList(stmts[firstGoto:labelPos])) + "\n"
-		result += c.convertStmtList(stmts[labelPos:])
-		return result
+		if firstGoto != -1 {
+			result := c.convertStmtList(stmts[:firstGoto])
+			result += "\nblock " + c.quoteLabel(label) + ":\n" + indent(c.convertStmtList(stmts[firstGoto:labelPos])) + "\n"
+			result += c.convertStmtList(stmts[labelPos:])
+			return result
+		}
 	}
 
 	result := []string{}
@@ -442,7 +485,7 @@ func (c *Context) convertStmtList(stmts []ast.Stmt) string {
 }
 
 func (c *Context) convertFuncCode(funcType *ast.FuncType, body *ast.BlockStmt) string {
-	newc := c.copy()
+	newc := c.newScope()
 	newc.resultVariables = map[string]bool{}
 	newc.assignedTo = map[string]bool{}
 	newc.walkStmt(body)

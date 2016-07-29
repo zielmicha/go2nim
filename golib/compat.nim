@@ -40,7 +40,7 @@ trivialConverter char, int32
 trivialConverter char, int64
 trivialConverter char, int
 
-# Extening conversions
+# Extending conversions
 
 trivialConverter uint8, int
 trivialConverter uint8, int32
@@ -79,11 +79,17 @@ converter toString*(a: GoSlice[byte]): string =
   copyMem(addr s[0], addr a[0], a.len)
   return s
 
+proc `-`*(x: uint64): uint64 =
+  return 0.uint64 - x
+
 proc `-`*(x: char, y: char): char =
   return (x.byte - y.byte).char
 
 proc `+=`*(x: var char, y: char) =
   x = (x.byte - y.byte).char
+
+proc `==`*(x: char, y: byte): bool =
+  return x.byte == x
 
 # TODO: remove these methods and fix make((INTLITERAL), ...)
 trivialConverter int, uint32
@@ -124,6 +130,9 @@ proc `+`*(a: int, b: uint): uint =
 
 proc `+`*(a: int, b: uint64): uint64 =
   return a.uint64 + b
+
+proc `+`*(a: int, b: char): int =
+  return a + b.int
 
 proc `go/`*(a: int, b: uint64): uint64 =
   return a.uint64 div b
