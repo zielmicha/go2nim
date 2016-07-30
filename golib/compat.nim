@@ -168,3 +168,28 @@ proc `<`*(a: int, b: int64): bool =
 
 proc `*`*(a: int, b: uint64): uint64 =
   return a.uint64 * b.uint64
+
+proc `$`*(a: uint): string =
+  return $(a.uint64)
+
+proc `$`*(a: uint8): string =
+  return $(a.uint64)
+
+proc `$`*(a: uint16): string =
+  return $(a.uint64)
+
+proc `$`*(a: uint32): string =
+  return $(a.uint64)
+
+# Nim issue #4543
+# also, we {.overflowChecks: off.}
+
+template goSupportMakeMod*(typ) =
+  proc `mod`*(a: typ, b: typ): typ =
+    if b == 0:
+      raise newException(DivByZeroError, "unsigned division by zero")
+    when a is SomeSignedInt:
+      if b == -1 and a == a.low: # arbitrary overflow
+        return 0
+
+    return system.`mod`(a, b)

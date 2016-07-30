@@ -82,7 +82,7 @@ func (c *Context) convertStmt(stmt ast.Stmt) string {
 	case *ast.DeferStmt:
 		// TODO: recover (use `return` from defer)
 		// FIXME: args are evaluated imm
-		return "defer: " + c.convertExpr(node.Call)
+		return "godefer(" + c.convertExpr(node.Call) + ")"
 	case *ast.EmptyStmt:
 		panic("not implemented")
 	case *ast.ExprStmt:

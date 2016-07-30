@@ -2,7 +2,7 @@
 
 genpkg() {
     echo $1
-    ./go2nim all ../go/src/$1/*.go > golib/$1.nim
+    ./go2nim all go/src/$1/*.go > golib/$1.nim
     echo $1.nim >> golib/.gitignore
 }
 

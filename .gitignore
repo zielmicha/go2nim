@@ -4,3 +4,7 @@ nimcache/
 experiment/
 /go2nim
 *.ndb
+/gorun.nim
+/gorun
+/stdinfile
+/build

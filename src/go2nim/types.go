@@ -126,9 +126,13 @@ func (c *Context) convertParamList(fields *ast.FieldList, recv *ast.FieldList) s
 	}
 
 	result := []string{}
-	for _, field := range fields.List {
-		for _, name := range field.Names {
-			result = append(result, c.convertFieldName(name.Name) + ": " + c.convertType(field.Type))
+	for i, field := range fields.List {
+		if len(field.Names) == 0 {
+			result = append(result, "arg" + strconv.Itoa(i) + ": " + c.convertType(field.Type))
+		} else {
+			for _, name := range field.Names {
+				result = append(result, c.convertFieldName(name.Name) + ": " + c.convertType(field.Type))
+			}
 		}
 	}
 

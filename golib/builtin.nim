@@ -1,5 +1,5 @@
 import collections/interfaces, collections/exttype, collections/gcptrs, collections/goslice, collections/macrotool
-import macros
+import macros, typetraits
 
 exttypes:
   type
@@ -18,9 +18,7 @@ type
 
   GoAutoArray*[T] = object
 
-proc panic*(err: string) =
-  # TODO
-  raise newException(Exception, "panic")
+include builtinerrors
 
 macro makeObjectFromTuple(fields: typed, t: typed): expr =
   let typeName = t.getType[1]
@@ -90,7 +88,9 @@ proc makeNilPtr*[T](t: typedesc[gcptr[T]]): gcptr[T] =
   return makeGcptr[T](nil, nil)
 
 proc convert*[T, R](t: typedesc[T], v: R): T =
-  when compiles(T(v)):
+  when T is SomeInteger and R is SomeInteger:
+    return cast[T](v)
+  elif compiles(T(v)):
     return T(v)
   else:
     # necessary due to Nim bug?
@@ -109,7 +109,18 @@ proc castInterface*[T, R](v: T, to: typedesc[R]): R =
 
   return ret
 
+proc println*(args: varargs[string, `$`]) =
+  echo(@args)
+
+proc print*(args: varargs[string, `$`]) =
+  echo(@args)
+
 proc `go/`*(a: SomeInteger, b: SomeInteger): SomeInteger =
+  if b == 0:
+    panic("division by zero") # TODO: catch SIGFPE?
+  when a is SomeSignedInt:
+    if b == -1 and a == a.low: # arbitrary overflow
+      return a
   return a div b
 
 proc `go/`*(a: float, b: float): float =

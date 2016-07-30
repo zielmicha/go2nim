@@ -58,4 +58,8 @@ func main() {
 	if !printBody && !printPreamble {
 		panic("invalid action")
 	}
+
+	if action == "all" {
+		fmt.Println("when isMainModule:\n  main()")
+	}
 }
