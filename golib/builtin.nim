@@ -1,5 +1,5 @@
 import collections/interfaces, collections/exttype, collections/gcptrs, collections/goslice, collections/macrotool
-import macros, typetraits, complex
+import macros, typetraits
 
 exttypes:
   type
@@ -11,11 +11,6 @@ type
   Rune* = int32
   uintptr* = int
 
-  complex128* = Complex
-  complex64* = complex128 # TODO
-
-export complex
-
 type
   Map*[K, V] = ref object
     # TODO
@@ -23,6 +18,7 @@ type
 
   GoAutoArray*[T] = object
 
+include builtincomplex
 include builtinerrors
 
 macro makeObjectFromTuple(fields: typed, t: typed): expr =
@@ -110,7 +106,7 @@ proc convert*[T, R](t: typedesc[T], v: R): T =
       return v
 
 proc maybeCastInterface*[T, R](v: T, to: typedesc[R]): tuple[val: R, ok: bool] =
-  return (convert(R, null), false) # TODO
+  result.ok = false
 
 proc castInterface*[T, R](v: T, to: typedesc[R]): R =
   let (ret, ok) = maybeCastInterface(v, R)

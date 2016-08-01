@@ -184,7 +184,17 @@ func (c *Context) convertExpr(expr ast.Expr) string {
 	case *ast.ParenExpr:
 		return "(" + c.convertExpr(node.X) + ")"
 	case *ast.SelectorExpr:
-		return c.convertExpr(node.X) + "." + c.convertFieldName(node.Sel.Name)
+		left := c.convertExpr(node.X)
+		right := c.convertFieldName(node.Sel.Name)
+		// TODO: configurable renames
+		switch left {
+		case "reflect":
+			switch node.Sel.Name {
+			case "Invalid", "Bool", "Int", "Int8", "Int16", "Int32", "Int64", "Uint", "Uint8", "Uint16", "Uint32", "Uint64", "Uintptr", "Float32", "Float64", "Complex64", "Complex128", "Array", "Chan", "Func", "Interface", "Map", "Ptr", "Slice", "String", "Struct", "UnsafePointer":
+				return "reflect.Kind." + c.quoteKeywords(c.downcaseFirstLetter(node.Sel.Name))
+			}
+		}
+		return left + "." + right
 	case *ast.SliceExpr:
 		result := []string{c.convertExpr(node.X)}
 		if node.Low != nil {

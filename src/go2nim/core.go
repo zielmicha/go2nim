@@ -20,6 +20,7 @@ type Context struct {
 	loopCounter int
 	iotaValue int
 
+	anonymousTuples bool
 	currentScopeVariables map[string]bool
 }
 

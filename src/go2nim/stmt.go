@@ -272,10 +272,16 @@ func (c *Context) convertSwitch(body *ast.BlockStmt, init ast.Stmt, tag ast.Expr
 				result += "elif "
 			}
 			cond := []string{}
+			var commonType string
 			for _, item := range clause.List {
 				var expr string
 				if isTypeSwitch {
 					expr = "typeId(" + c.convertType(item) + ")"
+					if commonType == "" {
+						commonType = c.convertType(item)
+					} else {
+						commonType = "EmptyInterface"
+					}
 				} else {
 					expr = c.convertExpr(item)
 				}
@@ -284,12 +290,18 @@ func (c *Context) convertSwitch(body *ast.BlockStmt, init ast.Stmt, tag ast.Expr
 			result += strings.Join(cond, " or ") + ":\n"
 			newc := c.newScope()
 			newc.loops = append(newc.loops, Loop{continueStmt: "continue", breakStmt: "break"})
+			if typeSwitchVar != "" {
+				result += indent("let " + typeSwitchVar + " = castInterface(typeSwitchOn, to=" + commonType + ")") + "\n"
+ 			}
 			result += indent(newc.convertStmtList(caseBody)) + "\n"
 		}
 	}
 
 	if defaultCase != nil {
 		result += "else:\n"
+		if isTypeSwitch {
+			result += indent("let " + typeSwitchVar + " = typeSwitchOn\n")
+		}
 		result += indent(c.newScope().convertStmtList(defaultCase.Body))
 	}
 
@@ -300,7 +312,8 @@ func (c *Context) convertSwitch(body *ast.BlockStmt, init ast.Stmt, tag ast.Expr
 		}
 		var convertedTag string
 		if isTypeSwitch {
-			convertedTag = "typeId(" + c.convertExpr(tag) + ")"
+			pre += indent("let typeSwitchOn = " + c.convertExpr(tag)) + "\n"
+			convertedTag = "typeId(typeSwitchOn)"
 		} else {
 			if tag != nil {
 				convertedTag = c.convertExpr(tag)

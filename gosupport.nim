@@ -4,6 +4,8 @@
 import golib/compat, golib/builtin
 import collections/gcptrs, collections/interfaces, collections/anonfield, collections/exttype, collections/goslice
 
+import collections/reflect as collectionsReflect
+
 # restore overflow checking for division
 goSupportMakeMod SomeUnsignedInt
 goSupportMakeMod int64

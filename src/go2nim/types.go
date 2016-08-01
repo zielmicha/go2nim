@@ -29,7 +29,9 @@ func (c *Context) convertInterface(node *ast.InterfaceType) string {
 		} else {
 			name := method.Names[0].Name
 			var typeBase interface{} = method.Type
-			fields[i] = c.convertFuncName(name) + "(" + c.convertParamList(typeBase.(*ast.FuncType).Params, nil) + "): " + c.convertReturnType(typeBase.(*ast.FuncType).Results)
+			returnc := c.copy()
+			returnc.anonymousTuples = true
+			fields[i] = c.convertFuncName(name) + "(" + c.convertParamList(typeBase.(*ast.FuncType).Params, nil) + "): " + returnc.convertReturnType(typeBase.(*ast.FuncType).Results)
 		}
 	}
 	if len(fields) == 0 {
@@ -58,7 +60,7 @@ func (c *Context) convertType(expr ast.Expr) string {
 		return c.convertType(node.X)
 	case *ast.Ident:
 		switch node.Name {
-		case "bool", "byte", "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64", "string", "float", "float64", "float32", "complex128", "complex64":
+		case "bool", "byte", "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64", "string", "float", "float64", "float32", "complex128", "complex64", "uintptr":
 			return node.Name
 		default:
 			return c.convertTypeName(node.Name)
@@ -104,7 +106,7 @@ func (c *Context) looksLikeType(expr ast.Node) int {
 	switch node := node.(type) {
 	case *ast.Ident:
 		switch node.Name {
-		case "rune", "bool", "byte", "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64", "string", "complex128", "complex64":
+		case "rune", "bool", "byte", "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64", "string", "complex128", "complex64", "uintptr":
 			return 1
 		}
 		if node.Obj != nil {
@@ -168,17 +170,29 @@ func (c *Context) convertReturnType(fields *ast.FieldList) string {
 
 	for i, field := range fields.List {
 		if len(field.Names) == 0 {
-			result = append(result, "arg" + strconv.Itoa(i) + ": " + c.convertType(field.Type))
+			if c.anonymousTuples {
+				result = append(result, c.convertType(field.Type))
+			} else {
+				result = append(result, "arg" + strconv.Itoa(i) + ": " + c.convertType(field.Type))
+			}
 		}
 		for _, name := range field.Names {
-			result = append(result, name.Name + ": " + c.convertType(field.Type))
+			if c.anonymousTuples {
+				result = append(result, c.convertType(field.Type))
+			} else {
+				result = append(result, name.Name + ": " + c.convertType(field.Type))
+			}
 		}
 	}
 
 	if len(result) == 1 {
 		return c.convertType(fields.List[0].Type)
 	} else {
-		return "tuple[" + strings.Join(result, ", ") + "]"
+		if c.anonymousTuples {
+			return "(" + strings.Join(result, ", ") + ")"
+		} else {
+			return "tuple[" + strings.Join(result, ", ") + "]"
+		}
 	}
 }
 

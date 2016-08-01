@@ -56,7 +56,9 @@ func (c *Context) quoteKeywords(name string) string {
 	case "is", "in":
 		// Nim is very confused if we override these
 		return name + "A"
-	case "addr", "and", "as", "asm", "atomic", "bind", "block", "break", "case", "cast", "concept", "const", "continue", "converter", "defer", "discard", "distinct", "div", "do", "elif", "else", "end", "enum", "except", "export", "finally", "for", "from", "func", "generic", "if", "import", "include", "interface", "isnot", "iterator", "let", "macro", "method", "mixin", "mod", "nil", "not", "notin", "object", "of", "or", "out", "proc", "ptr", "raise", "ref", "return", "shl", "shr", "static", "template", "try", "tuple", "type", "using", "var", "when", "while", "with", "without", "xor", "yield":
+	case "type":
+		return "getType"
+	case "addr", "and", "as", "asm", "atomic", "bind", "block", "break", "case", "cast", "concept", "const", "continue", "converter", "defer", "discard", "distinct", "div", "do", "elif", "else", "end", "enum", "except", "export", "finally", "for", "from", "func", "generic", "if", "import", "include", "interface", "isnot", "iterator", "let", "macro", "method", "mixin", "mod", "nil", "not", "notin", "object", "of", "or", "out", "proc", "ptr", "raise", "ref", "return", "shl", "shr", "static", "template", "try", "tuple", "using", "var", "when", "while", "with", "without", "xor", "yield":
 		return "`" + name + "`"
 	case "pP": // special case for stdlib
 		return "`p^P`"
@@ -80,7 +82,7 @@ func (c *Context) convertFuncName(name string) string {
 	case "make", "copy", "len":
 		return name
 	case "String", "string":
-		return "`$`"
+		return "toString"
 	case "space":
 		return "spaceF"
 	}
@@ -88,7 +90,14 @@ func (c *Context) convertFuncName(name string) string {
 }
 
 func (c *Context) convertFieldName(name string) string {
-	return c.convertGenericName(name)
+	var converted = c.convertGenericName(name)
+	switch converted {
+	case "string":
+		return "toString"
+	case "pointer", "bool", "float", "uint", "int":
+		return "to" + c.upcaseFirstLetter(name)
+	}
+	return converted
 }
 
 func (c *Context) convertTypeName(name string) string {
