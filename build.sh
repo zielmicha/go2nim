@@ -55,7 +55,7 @@ get_dep() {
 
 echo "path: \".\"" > nim.cfg
 
-get_dep collections https://github.com/zielmicha/collections.nim 2db1584df63bfba6d4bd58518095035abf42ba0b ''
+get_dep collections https://github.com/zielmicha/collections.nim b1902cdc9f33c234fdd78d5e1b34942b49f8b016 ''
 
 echo 'path: "translated/"
 path: "."

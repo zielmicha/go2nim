@@ -19,3 +19,4 @@ done
 genpkg unicode/utf8
 genpkg strings
 genpkg strconv
+genpkg fmt

@@ -150,20 +150,23 @@ func (c *Context) convertExpr(expr ast.Expr) string {
 			return "convert(" + c.convertType(node.Fun) + ", " + c.convertExpr(node.Args[0]) + ")"
 		}
 
+		// TODO: ellipsis
+		args := make([]string, len(node.Args))
+		for i, arg := range node.Args {
+			args[i] = c.convertExpr(arg)
+		}
+
 		if ident, ok := node.Fun.(*ast.Ident); ok {
 			// check for builtin functions
 			switch ident.Name {
 			case "new":
 				if len(node.Args) != 1 { panic("bad number of arguments") }
 				return "gcnew(" + c.convertType(node.Args[0]) + ")"
+			case "make":
+				args[0] = c.convertType(node.Args[0])
 			}
 		}
 
-		// TODO: ellipsis
-		args := make([]string, len(node.Args))
-		for i, arg := range node.Args {
-			args[i] = c.convertExpr(arg)
-		}
 		return c.convertExpr(node.Fun) + "(" + strings.Join(args, ", ") + ")"
 	case *ast.BinaryExpr:
 		switch node.Op {

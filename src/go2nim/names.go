@@ -81,6 +81,8 @@ func (c *Context) convertFuncName(name string) string {
 		return name
 	case "String", "string":
 		return "`$`"
+	case "space":
+		return "spaceF"
 	}
 	return c.convertGenericName(name)
 }

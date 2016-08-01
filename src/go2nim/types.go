@@ -7,8 +7,14 @@ import "go/ast"
 func (c *Context) convertStruct(node *ast.StructType) string {
 	fields := []string{}
 	for _, field := range node.Fields.List {
-		for _, name := range field.Names {
-			fields = append(fields, c.convertFieldName(name.Name) + ": " + c.convertType(field.Type))
+		if len(field.Names) == 0 {
+			// anonymous field, must be ident
+			typeName := field.Type.(*ast.Ident).Name
+			fields = append(fields, "inline " + c.convertFieldName(typeName) + ": " + c.convertType(field.Type))
+		} else {
+			for _, name := range field.Names {
+				fields = append(fields, c.convertFieldName(name.Name) + ": " + c.convertType(field.Type))
+			}
 		}
 	}
 	return "struct((" + strings.Join(fields, ", ") + "))"
@@ -23,10 +29,14 @@ func (c *Context) convertInterface(node *ast.InterfaceType) string {
 		} else {
 			name := method.Names[0].Name
 			var typeBase interface{} = method.Type
-			fields[i] = c.convertFieldName(name) + "(" + c.convertParamList(typeBase.(*ast.FuncType).Params, nil) + "): " + c.convertReturnType(typeBase.(*ast.FuncType).Results)
+			fields[i] = c.convertFuncName(name) + "(" + c.convertParamList(typeBase.(*ast.FuncType).Params, nil) + "): " + c.convertReturnType(typeBase.(*ast.FuncType).Results)
 		}
 	}
-	return "iface((" + strings.Join(fields, ", ") + "))"
+	if len(fields) == 0 {
+		return "EmptyInterface"
+	} else {
+		return "iface((" + strings.Join(fields, ", ") + "))"
+	}
 }
 
 func (c *Context) convertTypeDecl(expr ast.Expr) string {
@@ -48,7 +58,7 @@ func (c *Context) convertType(expr ast.Expr) string {
 		return c.convertType(node.X)
 	case *ast.Ident:
 		switch node.Name {
-		case "bool", "byte", "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64", "string", "float", "float64", "float32":
+		case "bool", "byte", "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64", "string", "float", "float64", "float32", "complex128", "complex64":
 			return node.Name
 		default:
 			return c.convertTypeName(node.Name)
@@ -94,7 +104,7 @@ func (c *Context) looksLikeType(expr ast.Node) int {
 	switch node := node.(type) {
 	case *ast.Ident:
 		switch node.Name {
-		case "rune", "bool", "byte", "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64", "string":
+		case "rune", "bool", "byte", "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64", "string", "complex128", "complex64":
 			return 1
 		}
 		if node.Obj != nil {

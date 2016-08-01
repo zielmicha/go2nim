@@ -64,7 +64,7 @@ func (c *Context) convertStmt(stmt ast.Stmt) string {
 	case *ast.AssignStmt:
 		return c.convertAssign(node)
 	case *ast.BlockStmt:
-		panic("not implemented")
+		return "block:" + indent(c.convertStmtList(node.List))
 	case *ast.BranchStmt:
 		// TODO: labels, goto
 		switch node.Tok {

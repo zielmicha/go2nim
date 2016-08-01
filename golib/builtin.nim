@@ -1,5 +1,5 @@
 import collections/interfaces, collections/exttype, collections/gcptrs, collections/goslice, collections/macrotool
-import macros, typetraits
+import macros, typetraits, complex
 
 exttypes:
   type
@@ -7,9 +7,14 @@ exttypes:
       error(): string
     ))
 
-type Rune* = int32
+type
+  Rune* = int32
+  uintptr* = int
 
-type uintptr* = int
+  complex128* = Complex
+  complex64* = complex128 # TODO
+
+export complex
 
 type
   Map*[K, V] = ref object
@@ -54,7 +59,9 @@ macro makeObjectFromSingleItem(item: typed, t: typed): expr =
   return ret
 
 proc make*[T: object, R](fields: R, t: typedesc[T]): T =
-  when R is tuple:
+  when R is tuple[]:
+    return T()
+  elif R is tuple:
     makeObjectFromTuple(fields, t)
   else:
     makeObjectFromSingleItem(fields, t)
@@ -89,7 +96,10 @@ proc makeNilPtr*[T](t: typedesc[gcptr[T]]): gcptr[T] =
 
 proc convert*[T, R](t: typedesc[T], v: R): T =
   when T is SomeInteger and R is SomeInteger:
-    return cast[T](v)
+    when nimvm: # TODO: nimvm doesn't support casts
+      return T(v)
+    else:
+      return cast[T](v)
   elif compiles(T(v)):
     return T(v)
   else:
@@ -182,7 +192,6 @@ macro gomethod*(def: untyped): stmt =
       let `selfName` = `selfName`[]
 
   def[6].add(call)
-  def.repr.echo
   return newNimNode(nnkStmtList).add(defCopy, def)
 
 when isMainModule:

@@ -1,5 +1,6 @@
 ## Fake synchronization primitives.
 import collections/exttype, collections/gcptrs
+import golib/builtin
 
 exttypes:
   type
@@ -12,6 +13,11 @@ exttypes:
     Locker* = iface((
       lock(): void,
       unlock(): void
+    ))
+
+    Pool* = struct((
+      new: (proc(): EmptyInterface),
+      values: seq[EmptyInterface]
     ))
 
 proc lock*(m: Mutex) =
@@ -28,3 +34,15 @@ proc wait*(c: Cond) =
 
 proc signal*(c: Cond) =
   discard
+
+# Pool
+# TODO: thread safety
+
+proc get*(p: gcptr[Pool]): EmptyInterface {.gomethod.} =
+  if p.values.len == 0:
+    p.values.add((p.new)())
+  return p.values.pop()
+
+proc put*(p: gcptr[Pool], x: EmptyInterface): void {.gomethod.} =
+  if p.values.len < 32:
+    p.values.add(x)

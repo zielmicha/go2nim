@@ -149,6 +149,15 @@ proc `<=`*(a: int, b: SomeUnsignedInt): bool =
   else:
     return a.uint64 <= b.uint64
 
+proc `<=`*(a: SomeUnsignedInt, b: int): bool =
+  if b < 0:
+    return false
+  else:
+    return a.uint64 <= b.uint64
+
+proc `<=`*(a: byte, b: byte): bool =
+  return system.`<=`(a, b)
+
 proc `or`*(a: int, b: uint8): uint8 =
   return a.uint8 or b
 
@@ -160,6 +169,9 @@ proc `+=`*(a: var int, b: int) =
 
 proc `*`*(a: int, b: SomeUnsignedInt): SomeUnsignedInt =
   return a.SomeUnsignedInt * b
+
+proc `[]`*(a: string, i: uint64): char =
+  return a[i.int]
 
 # ---
 
