@@ -224,11 +224,12 @@ func (c *Context) convertExpr(expr ast.Expr) string {
 		switch node.Kind {
 		case token.CHAR:
 			if strings.HasPrefix(node.Value, "'\\u") || strings.HasPrefix(node.Value, "'\\U") {
-				return "Rune(0x" + node.Value[3:len(node.Value)-1] + ")"
+				return "runelit(0x" + node.Value[3:len(node.Value)-1] + ")"
 			}
 			if node.Value == "'\\n'" {
-				return "'\\L'"
+				return "runelit('\\L')"
 			}
+			return "runelit(" + node.Value + ")"
 		case token.STRING:
 			// TODO
 			if strings.HasPrefix(node.Value, "`") {

@@ -18,5 +18,6 @@ for name in lo pc ps; do
 done
 genpkg unicode/utf8
 genpkg strings
+sed -i 's/if (var m = count(s, old); (m == 0)):/var m = count(s, old)\n  if (m == 0):/' golib/strings.nim
 genpkg strconv
 genpkg fmt

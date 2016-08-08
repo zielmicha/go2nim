@@ -98,8 +98,9 @@ proc convert*[T, R](t: typedesc[T], v: R): T =
       return cast[T](v)
   elif compiles(T(v)):
     return T(v)
+  elif compiles(explicitConvert(v, T)):
+    return explicitConvert(v, T)
   else:
-    # necessary due to Nim bug?
     when T is gcptr and R is NullType:
       return makeNilPtr(T)
     else:
@@ -189,6 +190,14 @@ macro gomethod*(def: untyped): stmt =
 
   def[6].add(call)
   return newNimNode(nnkStmtList).add(defCopy, def)
+
+macro runelit*(s: untyped): expr =
+  if s.kind == nnkIntLit:
+    return s
+  elif s.kind == nnkCharLit:
+    return newIntLitNode(s.intVal)
+  else:
+    error("bad runelit")
 
 when isMainModule:
   type

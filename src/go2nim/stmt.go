@@ -54,7 +54,6 @@ func (c *Context) walkStmt(stmt ast.Stmt) {
 	}
 }
 
-
 func (c *Context) convertStmt(stmt ast.Stmt) string {
 	if stmt == nil {
 		return ""
@@ -347,12 +346,14 @@ func (c *Context) convertAssign(node *ast.AssignStmt) string {
 		if ident, ok := expr.(*ast.Ident); ok && ident.Obj != nil {
 			if _, ok := ident.Obj.Decl.(*ast.Field); ok {
 				exprStr = c.convertExpr(expr)
+				variablesRedeclared = append(variablesRedeclared, "")
 			} else {
 				// not result.X
 				exprStr = c.convertFieldName(ident.Name)
 
 				varDef := "var " + ident.Name + ": type((" + rhs + ")[" + strconv.Itoa(i) + "])"
-				if _, ok := c.currentScopeVariables[ident.Name]; ok && (ident.Name != "_") {
+				_, ok := c.currentScopeVariables[ident.Name]
+				if ok && (ident.Name != "_") {
 					variablesRedeclared = append(variablesRedeclared, varDef)
 				} else {
 					variablesNotRedeclared = append(variablesNotRedeclared, varDef)

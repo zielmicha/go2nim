@@ -1,5 +1,5 @@
 # Compatibility with Nim types
-import collections/interfaces, collections/goslice, collections/gcptrs
+import collections/interfaces, collections/goslice, collections/gcptrs, golib/builtin
 
 proc `+`*(a: string, b: string): string =
   return a & b
@@ -73,11 +73,13 @@ proc `shl`*(a, b: uint): uint =
 proc `shl`*(a: int, b: uint): int =
   return (`shl`(a.uint, b.uint)).int
 
-converter toString*(a: GoSlice[byte]): string =
-  # TODO: only in convert
+proc explicitConvert*(a: GoSlice[byte], to: typedesc[string]): string =
   var s: string = newString(a.len)
   copyMem(addr s[0], addr a[0], a.len)
   return s
+
+proc explicitConvert*(a: Rune, to: typedesc[string]): string =
+  panic("rune -> string")
 
 proc `-`*(x: uint64): uint64 =
   return 0.uint64 - x
@@ -86,10 +88,19 @@ proc `-`*(x: char, y: char): char =
   return (x.byte - y.byte).char
 
 proc `+=`*(x: var char, y: char) =
-  x = (x.byte - y.byte).char
+  x = (x.byte + y.byte).char
+
+proc `+=`*(x: var int32, y: int) =
+  x = (x + y.int32).int32
 
 proc `==`*(x: char, y: byte): bool =
   return x.byte == x
+
+proc `==`*(x: char, y: Rune): bool =
+  return x.Rune == y
+
+proc `==`*(x: char, y: int): bool =
+  return x.int == y
 
 # TODO: remove these methods and fix make((INTLITERAL), ...)
 trivialConverter int, uint32
@@ -149,6 +160,9 @@ proc `<=`*(a: int, b: SomeUnsignedInt): bool =
   else:
     return a.uint64 <= b.uint64
 
+proc `<=`*(a: SomeUnsignedInt, b: SomeUnsignedInt): bool =
+  return system.`<=`(a, b)
+
 proc `<=`*(a: SomeUnsignedInt, b: int): bool =
   if b < 0:
     return false
@@ -167,11 +181,20 @@ proc `+=`*(a: var uint8, b: int) =
 proc `+=`*(a: var int, b: int) =
   a = a + b
 
+proc `+=`*(a: var uint, b: int) =
+  a = a + b
+
+proc `+=`*(a: var char, b: int) =
+  a = (a.int + b).char
+
 proc `*`*(a: int, b: SomeUnsignedInt): SomeUnsignedInt =
   return a.SomeUnsignedInt * b
 
 proc `[]`*(a: string, i: uint64): char =
   return a[i.int]
+
+proc `[]`*(a: gcptr, i: SomeInteger): auto =
+  return (a[])[i]
 
 # ---
 
