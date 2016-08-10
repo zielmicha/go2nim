@@ -266,7 +266,7 @@ macro gofunc*(def: untyped): stmt =
         manual[6] = call
         manual.repr.echo
         result.add(manual)
-      #]
+      ]#
 
       return
 

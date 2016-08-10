@@ -18,5 +18,5 @@ func main() {
 	call1(6, "1", "2")
 	call1(6, ([]string{"a", "b"})...)
 	//call2(6, "1", "2")
-	call3(1, 2)
+	call3([]interface{}{1, 2})
 }
