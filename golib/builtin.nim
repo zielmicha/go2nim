@@ -232,12 +232,12 @@ macro gofunc*(def: untyped): stmt =
       if params[0] != newIdentNode("void"):
         call = newNimNode(nnkReturnStmt).add(call)
 
-      result.add(varargsDef)
+      #result.add(varargsDef)
       varArgsDef[6] = call
 
-      # wrapper by repeating args, disabled for now
+      # wrapper by repeating args, varargs[T] causes compiler crashes (?)
 
-      #[
+
       for j in 1..3:
         var call = newCall(macrotool.stripPublic(def[0]))
         var additionalNames: seq[NimNode] = @[]
@@ -248,7 +248,7 @@ macro gofunc*(def: untyped): stmt =
 
         call.del(call.len - 1)
         let callArgs = newNimNode(nnkBracket)
-        call.add(callArgs)
+        call.add(newCall("govarargs", newCall("toSlice", newCall("@", callArgs))))
 
         for i in 0..<j:
           let name = gensym(nskParam, ident="arg" & $i & "_")
@@ -264,9 +264,8 @@ macro gofunc*(def: untyped): stmt =
         for name in additionalNames:
           manualParams.add(newNimNode(nnkIdentDefs).add(name, varargType, newNimNode(nnkEmpty)))
         manual[6] = call
-        manual.repr.echo
         result.add(manual)
-      ]#
+
 
       return
 

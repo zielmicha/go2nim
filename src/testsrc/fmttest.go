@@ -3,5 +3,5 @@ package fmttest
 import "fmt"
 
 func main() {
-	fmt.Println([]interface{}{"hello"})
+	fmt.Println("hello")
 }
