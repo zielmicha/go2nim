@@ -72,6 +72,10 @@ func (c *Context) convertCompositeLiteral(expr *ast.CompositeLit, isPointer bool
 	case *ast.ArrayType:
 		// fill item type if needed
 		for _, node := range expr.Elts {
+			if kv, ok := node.(*ast.KeyValueExpr); ok {
+				node = kv.Value
+			}
+
 			if sublit, ok := node.(*ast.CompositeLit); ok {
 				if sublit.Type == nil {
 					sublit.Type = typ.Elt
@@ -80,11 +84,8 @@ func (c *Context) convertCompositeLiteral(expr *ast.CompositeLit, isPointer bool
 		}
 
 		itemType := c.convertType(typ.Elt)
-		switch itemType {
-		case "float32", "float64", "int64", "uint64":
-			itemPrefix = "" + itemType + "("
-			itemSuffix = ")"
-		}
+		itemPrefix = "" + itemType + "("
+		itemSuffix = ")"
 	}
 
 	for _, node := range expr.Elts {
@@ -118,14 +119,20 @@ func (c *Context) convertCompositeLiteral(expr *ast.CompositeLit, isPointer bool
 			return wrapped + ".make(" + typeName + ")"
 		}
 	default:
+		baseTypeName := typeName
 		if isPointer {
-			typeName = "(ref " + typeName + ")"
+			typeName = "(ref " + baseTypeName + ")"
 		}
+		var result string
 		if isKv {
-			return typeName + "(" + val + ")"
+			result = typeName + "(" + val + ")"
 		} else {
-			return "make((" + val + "), " + typeName + ")"
+			result = "make((" + val + "), " + typeName + ")"
 		}
+		if isPointer {
+			result = "convert(gcptr[" + baseTypeName + "], " + result + ")"
+		}
+		return result
 	}
 }
 
@@ -165,6 +172,10 @@ func (c *Context) convertExpr(expr ast.Expr) string {
 			case "make":
 				args[0] = c.convertType(node.Args[0])
 			}
+		}
+
+		if node.Ellipsis != 0 {
+			args[len(args) - 1] = "govarargs(" + args[len(args) - 1] + ")"
 		}
 
 		return c.convertExpr(node.Fun) + "(" + strings.Join(args, ", ") + ")"

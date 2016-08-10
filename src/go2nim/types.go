@@ -92,7 +92,7 @@ func (c *Context) convertType(expr ast.Expr) string {
 	case *ast.StarExpr:
 		return "gcptr[" + c.convertType(node.X) + "]"
 	case *ast.Ellipsis:
-		return "GoSlice[" + c.convertType(node.Elt) + "]"
+		return "GoVarArgs[" + c.convertType(node.Elt) + "]"
 	case *ast.SelectorExpr:
 		return c.convertExpr(node.X) + "." + node.Sel.Name
 	default:

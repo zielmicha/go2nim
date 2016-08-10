@@ -21,3 +21,7 @@ genpkg strings
 sed -i 's/if (var m = count(s, old); (m == 0)):/var m = count(s, old)\n  if (m == 0):/' golib/strings.nim
 genpkg strconv
 genpkg fmt
+
+# FIXME: result can't be captured
+sed -i 's/        result.err = se.err/        discard/' golib/fmt.nim
+sed -i 's/godefer(errorHandler(gcaddr result.err))//' golib/fmt.nim

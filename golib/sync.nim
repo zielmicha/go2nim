@@ -1,5 +1,5 @@
 ## Fake synchronization primitives.
-import collections/exttype, collections/gcptrs
+import collections/exttype, collections/gcptrs, collections/reflect
 import golib/builtin
 
 exttypes:
@@ -39,10 +39,16 @@ proc signal*(c: Cond) =
 # TODO: thread safety
 
 proc get*(p: gcptr[Pool]): EmptyInterface {.gomethod.} =
+  if p.values == nil:
+    p.values = newSeq[EmptyInterface]()
   if p.values.len == 0:
-    p.values.add((p.new)())
-  return p.values.pop()
+    let f = (p.new)
+    let val = f()
+    p.values.add(val)
+  result = p.values.pop()
 
 proc put*(p: gcptr[Pool], x: EmptyInterface): void {.gomethod.} =
+  if p.values == nil:
+    p.values = newSeq[EmptyInterface]()
   if p.values.len < 32:
     p.values.add(x)

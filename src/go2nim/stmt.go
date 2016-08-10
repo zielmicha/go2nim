@@ -351,8 +351,12 @@ func (c *Context) convertAssign(node *ast.AssignStmt) string {
 				// not result.X
 				exprStr = c.convertFieldName(ident.Name)
 
-				varDef := "var " + ident.Name + ": type((" + rhs + ")[" + strconv.Itoa(i) + "])"
-				_, ok := c.currentScopeVariables[ident.Name]
+				if exprStr == "_" {
+					exprStr = "unused"
+				}
+
+				varDef := "var " + exprStr + ": type((" + rhs + ")[" + strconv.Itoa(i) + "])"
+				_, ok := c.currentScopeVariables[exprStr]
 				if ok && (ident.Name != "_") {
 					variablesRedeclared = append(variablesRedeclared, varDef)
 				} else {
@@ -501,6 +505,9 @@ func (c *Context) convertStmtList(stmts []ast.Stmt) string {
 func (c *Context) convertFuncCode(funcType *ast.FuncType, body *ast.BlockStmt) string {
 	newc := c.newScope()
 	newc.resultVariables = map[string]bool{}
+	for k, v := range c.resultVariables {
+		newc.resultVariables[k] = v
+	}
 	newc.assignedTo = map[string]bool{}
 	newc.walkStmt(body)
 	newc.resultNames = c.getReturnTypeResultVariables(funcType.Results)

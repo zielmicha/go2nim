@@ -4,7 +4,7 @@ type
   Value* = object
     val: EmptyInterface
 
-  Type* = object
+  Type* = ref object
 
 type Kind* {.pure.} = enum
   invalid = 0
@@ -36,10 +36,7 @@ type Kind* {.pure.} = enum
   unsafePointer = 26
 
 proc valueOf*(v: EmptyInterface): Value =
-  panic("not implemented")
-
-proc typeOf*(v: EmptyInterface): Type =
-  panic("not implemented")
+  return
 
 proc field*(v: Value, index: int): Value =
   panic("not implemented")
@@ -58,7 +55,12 @@ proc isValid*(v: Value): bool =
   panic("not implemented")
 
 proc getType*(v: Value): Type =
-  panic("not implemented")
+  return
+
+proc typeOf*(v: EmptyInterface): Type =
+  if v == null:
+    return nil
+  return valueOf(v).getType
 
 proc canAddr*(v: Value): bool =
   panic("not implemented")
@@ -93,6 +95,30 @@ proc complex*(v: Value): complex128 =
 proc bytes*(v: Value): GoSlice[byte] =
   panic("not implemented")
 
+proc setBool*(v: Value, val: bool) =
+  panic("not implemented")
+
+proc setInt*(v: Value, val: int64) =
+  panic("not implemented")
+
+proc setUint*(v: Value, val: uint64) =
+  panic("not implemented")
+
+proc setString*(v: Value, val: string) =
+  panic("not implemented")
+
+proc setFloat*(v: Value, val: float64) =
+  panic("not implemented")
+
+proc setComplex*(v: Value, val: complex128) =
+  panic("not implemented")
+
+proc set*(v: Value, val: Value) =
+  panic("not implemented")
+
+proc makeSlice*(typ: Type, len: int, cap: int): Value =
+  panic("not implemented")
+
 proc mapKeys*(v: Value): GoSlice[Value] =
   panic("not implemented")
 
@@ -113,6 +139,9 @@ proc numField*(v: Value): int =
 
 proc field*(v: Type, index: int): Type =
   # TODO: this method does not appear in docs
+  panic("not implemented")
+
+proc bits*(v: Type): int =
   panic("not implemented")
 
 proc elem*(v: Type): Type =

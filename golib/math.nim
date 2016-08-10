@@ -22,3 +22,6 @@ proc float64bits*(b: float64): uint64 =
 
 proc float64frombits*(b: uint64): float64 =
   return cast[float64](b)
+
+proc ldexp*(f: float64, m: int): float64 =
+  raise newException(ValueError, "ldexp")

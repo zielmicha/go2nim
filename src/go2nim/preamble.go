@@ -60,7 +60,7 @@ func (c *Context) convertFuncDecl(fdecl *ast.FuncDecl) string {
 	if isPublic {
 		name += "*"
 	}
-	result := "proc " + name + "(" + paramList + "): " + c.convertReturnType(fdecl.Type.Results) + " {.discardable, procvar"
+	result := "proc " + name + "(" + paramList + "): " + c.convertReturnType(fdecl.Type.Results) + " {.gofunc"
 	if fdecl.Recv != nil {
 		if _, ok := fdecl.Recv.List[0].Type.(*ast.StarExpr); ok {
 			result += ", gomethod"

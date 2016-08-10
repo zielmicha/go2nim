@@ -10,10 +10,9 @@ proc `+=`*(a: var string, b: string) =
 proc `[]`*(s: string, i: int64): char =
   return s[i.int]
 
-converter toSlice*[T](s: varargs[T]): GoSlice[T] =
-  # FIXME: this causes problems with compile-time algorithm.sort
+proc toSlice*[T](s: seq[T]): GoSlice[T] =
   let slice = make(GoSlice[T], s.len)
-  for i in 0..s.len:
+  for i in 0..<s.len:
     slice[i] = s[i]
   return slice
 
@@ -78,8 +77,8 @@ proc explicitConvert*(a: GoSlice[byte], to: typedesc[string]): string =
   copyMem(addr s[0], addr a[0], a.len)
   return s
 
-proc explicitConvert*(a: Rune, to: typedesc[string]): string =
-  panic("rune -> string")
+proc explicitConvert*(a: SomeInteger, to: typedesc[string]): string =
+  panic("int -> string")
 
 proc `-`*(x: uint64): uint64 =
   return 0.uint64 - x
@@ -137,7 +136,7 @@ converter narrowInt*(c: uint): int =
 # bug: 1.uint + 1 doesn't work
 
 proc `+`*(a: int, b: uint): uint =
-  return a.uint + b
+  return system.`+`(a.uint, b)
 
 proc `+`*(a: int, b: uint64): uint64 =
   return a.uint64 + b
@@ -195,6 +194,12 @@ proc `[]`*(a: string, i: uint64): char =
 
 proc `[]`*(a: gcptr, i: SomeInteger): auto =
   return (a[])[i]
+
+converter toComplex*(a: int): complex128 =
+  return (a.float64, 0.float64)
+
+proc complex*(a: float64, b: float64): complex128 =
+  return (a, b)
 
 # ---
 
