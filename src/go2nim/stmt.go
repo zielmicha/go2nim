@@ -14,6 +14,10 @@ func (c *Context) walkStmt(stmt ast.Stmt) {
 				c.assignedTo[ident.Name] = true
 			}
 		}
+	case *ast.IncDecStmt:
+		if ident, ok := node.X.(*ast.Ident); ok {
+			c.assignedTo[ident.Name] = true
+		}
 	case *ast.BlockStmt:
 		if node == nil {
 			return

@@ -5,6 +5,7 @@ import golib/builtin
 exttypes:
   type
     Mutex* = struct(())
+    RWMutex* = struct(())
 
     Cond* = struct((
       l: Locker
@@ -33,6 +34,18 @@ proc wait*(c: Cond) =
   discard
 
 proc signal*(c: Cond) =
+  discard
+
+proc lock*(m: RWMutex) =
+  discard
+
+proc unlock*(m: RWMutex) =
+  discard
+
+proc rLock*(m: RWMutex) =
+  discard
+
+proc rUnlock*(m: RWMutex) =
   discard
 
 # Pool

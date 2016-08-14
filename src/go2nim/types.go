@@ -143,7 +143,7 @@ func (c *Context) convertParamList(fields *ast.FieldList, recv *ast.FieldList) s
 			result = append(result, "arg" + strconv.Itoa(i) + ": " + c.convertType(field.Type))
 		} else {
 			for _, name := range field.Names {
-				result = append(result, c.convertFieldName(name.Name) + ": " + c.convertType(field.Type))
+				result = append(result, c.convertFuncName(name.Name) + ": " + c.convertType(field.Type))
 			}
 		}
 	}
